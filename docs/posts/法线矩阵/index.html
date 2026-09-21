@@ -123,8 +123,8 @@
   "keywords": [
     "图形学", "渲染", "数学"
   ],
-  "articleBody": "结论 法线要用 $M^{-\\mathsf T}$ 变换，而不是 $M$。记住这一句就够了。\n① 只有存在非均匀缩放或切变时，这件事才有意义。 如果变换只由平移、旋转、均匀缩放组成，直接用 $M$ 就是对的。\n② “逆转置\"只是特例，更一般的答案是伴随矩阵的转置。 逆转置要求矩阵可逆，而伴随矩阵总是存在、不需要做除法。 另有一个符号陷阱要留意：$\\det M \u003c 0$（镜像 / 负缩放）时，伴随给出的方向与逆转置相反—— 用伴随就必须补一个符号（注意写 det \u003c 0 ? -1 : 1，不能写 sign(det)——退化变换时 sign(0)=0 会把法线乘成零向量）。漏掉它只有镜像物体上的法线是反的。\n③ 工业界的取向是\"尽量不在 shader 里算”。 Unity 和 UE 靠 CPU 端预计算；Godot 给每个实例打标记，只有非均匀缩放时才在顶点着色器里算一次。 真正的效率排序是：不算 \u003e 用 CPU 预计算 \u003e 换乘法顺序 \u003e 在 shader 里算。\n一、问题：法线为什么不能用同一个矩阵变换 你的顶点着色器里大概率有这么一行：\nmat3 normalMatrix = transpose(inverse(mat3(model))); 它是对的。但为什么位置、切线、纹理坐标都用同一个 model，法线却要单独算一个矩阵？\n一个矩阵可以一致地变换点、线、三角形，甚至切向量——因为这些量都跟着几何走。\n法线不行。原因在于法线的定义方式和其他量根本不同：\n法线不是\"空间里指向某个方向的箭头\"，而是\"垂直于切平面的那个量\"。写出来就是\n$$\\mathbf{n} \\cdot \\mathbf{t} = 0$$对所有切于该点的向量 $\\mathbf{t}$ 成立。即：\n模型经过了一串变换，这些变换可以合并成一个矩阵 $M$。切线随之变成 $\\mathbf{t}' = M\\mathbf{t}$。 请找出一个矩阵 $N$，使变换后的法线 $\\mathbf{n}' = N\\mathbf{n}$ 仍然满足 $\\mathbf{n}' \\cdot \\mathbf{t}' = 0$。\n满足的解就是 $N = M^{-\\mathsf T}$。\n二、推导：从\"保持垂直\"到 $M^{-\\mathsf T}$ 跟随约束 “垂直\"就是点乘为零。写成矩阵乘法就是：\n$$\\mathbf{n}'^{\\mathsf T}\\mathbf{t}' = 0$$ 记号约定：本文统一按列向量处理（与 RTR4 一致），所以 $\\mathbf{n}^{\\mathsf T}$ 是行向量， 行向量乘列向量得到一个标量——这正是点乘。这里特意用 $\\mathsf T$ 写成矩阵形式，是为了下一步能直接代入矩阵。 （注意约定差异：HLSL / UE 里是行向量，代码写成 mul(v, M)；GLSL 是列向量，写成 M * v。 数学内容完全一样，只是乘法顺序反过来。）\n代入 $\\mathbf{n}' = N\\mathbf{n}$、$\\mathbf{t}' = M\\mathbf{t}$，并注意 $(N\\mathbf{n})^{\\mathsf T} = \\mathbf{n}^{\\mathsf T}N^{\\mathsf T}$：\n$$\\mathbf{n}^{\\mathsf T} N^{\\mathsf T} M\\, \\mathbf{t} = 0$$我们希望它对所有满足 $\\mathbf{n}^{\\mathsf T}\\mathbf{t} = 0$ 的向量对都成立。取 $N^{\\mathsf T}M = I$ 显然能满足，于是\n$$N = (M^{-1})^{\\mathsf T} = M^{-\\mathsf T}$$这就是\"逆转置”。2000 组随机矩阵（含拉伸与切变）里，直接用 $M$ 变换法线的垂直性违反率是 100%， 而 $M^{-\\mathsf T}$ 是 0%——因为随机矩阵几乎不会恰好落在\"旋转 + 均匀缩放\"那个特殊子集里。\n模型经过一串变换时不必逐级求逆：合并成 $M$ 后求一次即可，因为 $(M_1M_2)^{-\\mathsf T} = M_2^{-\\mathsf T}M_1^{-\\mathsf T}$。\n但这个解是唯一的吗 上面只证明了充分性。要谈必然性，令 $A = N^{\\mathsf T}M$。 固定 $\\mathbf{t}$：要求 $\\mathbf{n}^{\\mathsf T}(A\\mathbf{t}) = 0$ 对所有 $\\mathbf{n} \\perp \\mathbf{t}$ 成立， 这意味着 $A\\mathbf{t}$ 平行于 $\\mathbf{t}$。\n而这个性质必须对每个 $\\mathbf{t}$ 都成立。一个把每个向量都映成自身倍数的矩阵，只能是标量矩阵：\n$$A = \\lambda I \\quad\\Longrightarrow\\quad N = \\lambda\\,M^{-\\mathsf T}$$结论：法线变换矩阵唯一到一个标量因子。\n这一步不是数学洁癖，它直接解释了两件事：\n为什么变换后必须重新归一化——那个 $\\lambda$ 让长度不可信，而方向才是法线的全部 为什么可以用伴随矩阵顶替逆矩阵——两者差的正是这样一个标量因子（见下文\"更准确的答案\"） 三、更准确的答案：伴随矩阵 “逆转置\"有一个前提——$M$ 必须可逆。而\n$$M^{-1} = \\frac{\\operatorname{adj}(M)}{\\det M}$$当 $\\det M = 0$（矩阵奇异）时，逆不存在。但伴随矩阵总是存在。用伴随的转置来变换：\n$$\\operatorname{adj}(M)^{\\mathsf T} = (\\det M)\\,M^{-\\mathsf T}$$按第二节的结论，它与 $M^{-\\mathsf T}$ 只差一个标量因子。但要注意这个因子是带符号的：\n$\\det(M)$ $\\operatorname{adj}(M)^{\\mathsf T}$ 给出的方向 $\u003e 0$（保向变换） 与 $M^{-\\mathsf T}$ 相同 ✓ $\u003c 0$（镜像 / 负缩放） 与 $M^{-\\mathsf T}$ 相反 第二行不是缺陷，而是 $\\det$ 带符号的直接后果。 （“负缩放要翻转法线\"这类说法就是从这类符号问题里来的——但那句话说得含糊， 它可能指三件不同的事，后面会把它们分开。）\n当 $\\det M \u003e 0$ 时：伴随的转置 + 归一化 = 正确答案，而且不需要求逆。\n实测：3000 组随机矩阵里，$\\det\u003e0$ 的 1539 组方向全部一致，$\\det\u003c0$ 的 1461 组方向全部相反——没有一个例外。\n那什么时候真会碰到不可逆的变换？很少：\n投影矩阵不是。它在齐次坐标下可逆——四种常见配置（三种透视 + 正交）的行列式都非零， 2000 组视图空间点正投影再反投影的最大误差是 4.6e-13。 “投影不可逆\"这个说法指的是透视除法那一步：NDC 只剩 3 个分量，4 个未知数 3 个方程，解不回 4 维。 但管线里有额外信息——$z_{\\text{ndc}}$ 编码了深度，由它反推 $w$ 就能重建。 这正是引擎里\"从 NDC 反投影回视图空间\"的做法：不在投影空间里硬算光照，而是先反投影回视图空间。 真正不可逆的是退化变换：某个轴的缩放因子为 0（物体被压成一个平面）、或者动画形变塌陷。 所以伴随矩阵的价值主要不在\"救奇异矩阵”，而在下面这件事：\n它不需要做除法。 要用 $M^{-\\mathsf T}$，你得先算余子式、再除以 $\\det M$； 而 $\\operatorname{adj}(M)^{\\mathsf T} = C$ 直接就能用。GPU 上除法比乘法贵， 而且 $\\det M$ 很小时\"除以一个小数\"还会放大误差——不用除的写法两头都占便宜。\n一个小例子（退化变换下才成立，可手算）：$M = \\operatorname{diag}(1,2,0)$，把 z 方向压扁。 $\\det M = 0$，逆不存在；但 $\\operatorname{adj}(M)^{\\mathsf T} = \\operatorname{diag}(0,0,2)$， 作用在 $\\mathbf{n} = (0,0,1)$ 上得到 $(0,0,2)$，归一化后是 $(0,0,1)$。\n物体被压成 $z = 0$ 平面，而这个平面的法线正是 $(0,0,1)$——伴随给出了正确答案。\n在 shader 里怎么写 绝大多数情况下你不需要在 shader 里算它——法线矩阵每个物体算一次，CPU 端算好传 uniform 是标准做法。 真要在 GPU 上算（GPU skinning 里每根骨骼一个矩阵、程序化变形），用这个恒等式：\n$$\\operatorname{adj}(M)^{\\mathsf T} = \\text{余子式矩阵 } C$$也就是不必\"先求伴随再转置”，直接构造 $C$ 就行；而 3×3 的 $C$ 的三列正好是原矩阵两两列的叉积：\n// GLSL 的 mat3(a,b,c) 是「列为 a,b,c」；m[0] 是第一列 mat3 cofactorMatrix(mat3 m) { return mat3(cross(m[1],m[2]), cross(m[2],m[0]), cross(m[0],m[1])); } mat3 M = mat3(model); float det = determinant(M); // ⚠ 只有\"负\"才取反——不能写 sign(det)！ // 退化变换（det = 0）时 sign 返回 0，会把法线乘成零向量，normalize 之后就是 NaN。 float s = (det \u003c 0.0) ? -1.0 : 1.0; vec3 n_world = normalize(s * cofactorMatrix(M) * n_object); 这个符号不是多此一举：前面已经推出 $C = \\operatorname{adj}(M)^{\\mathsf T} = \\det(M)\\,M^{-\\mathsf T}$，而 $\\det(M)$ 带符号。\n但它也不能图省事写 sign(det) —— GLSL 的 sign(0) 返回 0（不是 1）， 而 $\\det M = 0$ 恰恰就是伴随矩阵唯一不可替代的场合。写成 sign(det)，这一行会在最需要它的时候 把法线乘成零向量，normalize 之后得到 NaN——一个只在退化变换上触发的 NaN，比方向反了更难查：\nM = diag(1,2,0)（把物体压成 z = 0 平面），n = (0,0,1)：\rcofactor(M)·n = (0, 0, 2) ← 伴随给出的答案，正确\rsign(0)·(…) = (0, 0, 0) ← 归零 → normalize 得 NaN ✗\r(det \u003c 0 ? -1 : 1)·(…) = (0, 0, 2) ← 保住答案 ✓\r2000 组随机矩阵实测：\rdet \u003e 0（保向）：与 M⁻ᵀ 方向相同 1005 组，相反 0 组\rdet \u003c 0（镜像）：与 M⁻ᵀ 方向相同 0 组，相反 995 组 ← 全反\r漏掉这个符号，只有镜像物体上的法线是反的——别的物体全对，最难查的那种 bug。\n但修符号要算 $\\det M$，而 $M^{-\\mathsf T}$ 本来就要算它（求逆的除法用得到）。 所以伴随版省下的只是一次除法。这够不够抵消多出来的一次符号修正？把两种写法各编一遍看字节码：\ntranspose(inverse(m)) SPIR-V 18 条指令 —— 其中\"求逆\"是一条**语义指令**，\r驱动还得把它展开成余子式 + det + 除法\rcofactor(m) + 符号修正 SPIR-V 22 条指令 —— 3 个 Cross + Determinant + FSign，已经展开完了\r伴随版在执行层面确实略快：它省掉的那次除法（GPU 上要多周期）比加上的符号修正值钱， 而且没有任何除法意味着极端缩放下的精度也更好。所以这个方案本身是成立的， 本节开头那句\"伴随不需要除法\"也不是空话。\n但差距只有几条指令，而代价是一个\"漏了就在镜像物体上出错\"的坑。 这笔账怎么算都不划算——真要省，就别在 shader 里算（见下文决策表与结论第 ③ 条）。\n另外两个注意点：顺序必须是循环移位的三对叉积；叉积含大数相减，极端缩放下会掉精度。\n四、什么时候你根本不用这么麻烦 RTR4 4.1.7 给了一个常被忽略的省略条件：变换只由平移 + 旋转 + 均匀缩放组成时（不含拉伸、挤压、切变），\n平移不影响法线（法线是向量） 均匀缩放只改变长度，不改变方向 旋转矩阵的转置就是它的逆 → 两次转置（或两次求逆）相互抵消 所以原矩阵 $M$ 可以直接用来变换法线。\n归一化同样能省：\n只有平移 + 旋转：长度不变，根本不需要归一化 再加均匀缩放 $s$：长度变成 $s$ 倍，除以 $s$ 即可 决策表 变换组成 法线变换 归一化 平移 不需要变换 — 平移 + 旋转 直接用 $M$ 不需要 平移 + 旋转 + 均匀缩放 直接用 $M$ 除以缩放因子 含非均匀缩放 / 切变 必须 $M^{-\\mathsf T}$（或 $\\operatorname{adj}^{\\mathsf T}$） 必须 投影等奇异变换 必须 $\\operatorname{adj}^{\\mathsf T}$ 必须 切向量 T / B 永远直接用 $M$ 视情况 只想拿结论的话，这张表就够了。\n五、几个相关的坑 TBN 里三个向量为什么不一样：切向量跟着几何走（按 $M$），法线要保持垂直性（按 $M^{-\\mathsf T}$）。 在\"均匀缩放 + 旋转\"下两者恰好一致，所以写错了也不暴露；一旦有非均匀缩放，法线贴图立刻不对。 工程上更省事的做法是只存切线 $\\mathbf{T}$，副切线用 $\\mathbf{B} = \\mathbf{N}' \\times \\mathbf{T}'$ 现场叉乘—— 省一个顶点属性，也躲开”$\\mathbf{B}$ 该按哪个矩阵变换\"的纠结。\n负缩放（镜像）最容易混：它翻转的不是法线，是手性——用 $M^{-\\mathsf T}$ 算出的法线自动正确 （$\\det M$ 的符号已含在里面）。真正要处理的是依赖左右手系的量：三角形绕序与剔除方向 （UE 判 IsLocalToWorldDeterminantNegative()）、TBN 副切线方向 （Godot 存 binormal_sign、UE 存 TangentToWorldSign）。 而\"双面材质翻法线\"（UE 的 TwoSidedSign）是另一回事——那是面朝向。\n归一化时机：顶点着色器里归一化远比逐像素便宜，但插值会改长度，走法线贴图的路径仍需再归一化一次。 跨平台：移动端 mediump 动态范围不够，法线矩阵相关计算用 highp；逐像素归一化要开方，低端设备上不免费。\n“负缩放要翻转法线\"这句话为什么容易把人绕进去：它混了三件不同的事，只是起因相同（$\\det M \u003c 0$）：\n① 建模层：镜像一个模型 → 三角形绕序反 → 面的正反面颠倒\r→ 建模工具里要\"Flip Normals\"（Blender）——说的是**绕序**\r② 着色器层：用伴随当法线矩阵 → 补符号（`det \u003c 0 ? -1 : 1`，不是 `sign(det)`）\r—— 说的是**法线向量**，但用 $M^{-\\mathsf T}$ 就没这问题\r③ 手性层：TBN 副切线方向、剔除方向——说的是**手性**\r所以这句话单看判不了对错——先问清说的是哪一个。三者处理位置不同，混着说必然自相矛盾。\n小结 法线的身份由\"与切向量的关系\"定义，所以它按 $M^{-\\mathsf T}$ 而不是 $M$ 变换 这个解唯一到一个标量因子——于是伴随矩阵能顶替逆矩阵，而归一化不能省 但在\"平移 + 旋转 + 均匀缩放\"下原矩阵就是对的（均匀缩放会改长度，除一下缩放因子即可） 下次写下 transpose(inverse(...)) 之前先问一句：这个物体的变换里有非均匀缩放吗？ 没有就可以省掉；有，就知道为什么省不掉。\n附录：这条链在面试里会被怎么问 为什么法线不能直接用模型矩阵变换\r→ 非均匀缩放破坏垂直性（用 n·t = 0 这个约束论证）\r→ 那正确的矩阵是什么（M⁻ᵀ，并指出它唯一到标量因子）\r→ 为什么既要求逆又要转置（切线是\"跟着坐标系走\"的量，法线是\"反着走\"的量）\r→ 什么时候可以偷懒（平移 + 旋转 + 均匀缩放）\r→ 矩阵奇异、逆不存在怎么办（伴随矩阵）\r→ 切向量为什么不一样（同一个变换，两类量的变换规则相反：逆变 / 协变）\r→ 负缩放下法线贴图为什么会错\r参考：Tomas Akenine-Möller 等，《Real-Time Rendering》第 4 版，4.1.7 节 Normal Transform（p.65–67）。 文中所有算例与压力测试数据均可用 3×3 矩阵运算复现。\n",
-  "wordCount" : "768",
+  "articleBody": "结论 法线要用 $M^{-\\mathsf T}$ 变换，而不是 $M$。记住这一句就够了。\n① 只有存在非均匀缩放或切变时，这件事才有意义。 如果变换只由平移、旋转、均匀缩放组成，直接用 $M$ 就是对的。\n② 矩阵可逆时，$M^{-\\mathsf T}$ 就够了。 伴随矩阵的转置 $\\operatorname{adj}(M)^{\\mathsf T}$ 是更一般的写法（奇异矩阵也有定义）， 但可逆时它给出的方向与 $M^{-\\mathsf T}$ 完全一致，只在 $\\det M = 0$（退化变换）时才多出什么。 用 $M^{-\\mathsf T}$ 不必额外操心符号——符号已经含在里面了。\n③ 工业界的取向是\"尽量不在 shader 里算\"。 Unity 和 UE 靠 CPU 端预计算；Godot 给每个实例打标记，只有非均匀缩放时才在顶点着色器里算一次。 真正的效率排序是：不算 \u003e 用 CPU 预计算 \u003e 换乘法顺序 \u003e 在 shader 里算。\n一、问题：法线为什么不能用同一个矩阵变换 你的顶点着色器里大概率有这么一行：\nmat3 normalMatrix = transpose(inverse(mat3(model))); 它是对的。但为什么位置、切线、纹理坐标都用同一个 model，法线却要单独算一个矩阵？\n一个矩阵可以一致地变换点、线、三角形，甚至切向量——因为这些量都跟着几何走。\n法线不行。原因在于法线的定义方式和其他量根本不同：\n法线不是\"空间里指向某个方向的箭头\"，而是\"垂直于切平面的那个量\"。写出来就是\n$$\\mathbf{n} \\cdot \\mathbf{t} = 0$$对所有切于该点的向量 $\\mathbf{t}$ 成立。即：\n模型经过了一串变换，这些变换可以合并成一个矩阵 $M$。切线随之变成 $\\mathbf{t}' = M\\mathbf{t}$。 请找出一个矩阵 $N$，使变换后的法线 $\\mathbf{n}' = N\\mathbf{n}$ 仍然满足 $\\mathbf{n}' \\cdot \\mathbf{t}' = 0$。\n满足的解就是 $N = M^{-\\mathsf T}$。\n二、推导：从\"保持垂直\"到 $M^{-\\mathsf T}$ 跟随约束 “垂直\"就是点乘为零。写成矩阵乘法就是：\n$$\\mathbf{n}'^{\\mathsf T}\\mathbf{t}' = 0$$ 记号约定：本文统一按列向量处理（与 RTR4 一致），所以 $\\mathbf{n}^{\\mathsf T}$ 是行向量， 行向量乘列向量得到一个标量——这正是点乘。这里特意用 $\\mathsf T$ 写成矩阵形式，是为了下一步能直接代入矩阵。 （注意约定差异：HLSL / UE 里是行向量，代码写成 mul(v, M)；GLSL 是列向量，写成 M * v。 数学内容完全一样，只是乘法顺序反过来。）\n代入 $\\mathbf{n}' = N\\mathbf{n}$、$\\mathbf{t}' = M\\mathbf{t}$，并注意 $(N\\mathbf{n})^{\\mathsf T} = \\mathbf{n}^{\\mathsf T}N^{\\mathsf T}$：\n$$\\mathbf{n}^{\\mathsf T} N^{\\mathsf T} M\\, \\mathbf{t} = 0$$我们希望它对所有满足 $\\mathbf{n}^{\\mathsf T}\\mathbf{t} = 0$ 的向量对都成立。取 $N^{\\mathsf T}M = I$ 显然能满足，于是\n$$N = (M^{-1})^{\\mathsf T} = M^{-\\mathsf T}$$这就是\"逆转置”。2000 组随机矩阵（含拉伸与切变）里，直接用 $M$ 变换法线的垂直性违反率是 100%， 而 $M^{-\\mathsf T}$ 是 0%——因为随机矩阵几乎不会恰好落在\"旋转 + 均匀缩放\"那个特殊子集里。\n模型经过一串变换时不必逐级求逆：合并成 $M$ 后求一次即可，因为 $(M_1M_2)^{-\\mathsf T} = M_2^{-\\mathsf T}M_1^{-\\mathsf T}$。\n但这个解是唯一的吗 上面只证明了充分性。要谈必然性，令 $A = N^{\\mathsf T}M$。 固定 $\\mathbf{t}$：要求 $\\mathbf{n}^{\\mathsf T}(A\\mathbf{t}) = 0$ 对所有 $\\mathbf{n} \\perp \\mathbf{t}$ 成立， 这意味着 $A\\mathbf{t}$ 平行于 $\\mathbf{t}$。\n而这个性质必须对每个 $\\mathbf{t}$ 都成立。一个把每个向量都映成自身倍数的矩阵，只能是标量矩阵：\n$$A = \\lambda I \\quad\\Longrightarrow\\quad N = \\lambda\\,M^{-\\mathsf T}$$结论：法线变换矩阵唯一到一个标量因子。\n这一步不是数学洁癖，它直接解释了两件事：\n为什么变换后必须重新归一化——那个 $\\lambda$ 让长度不可信，而方向才是法线的全部 为什么可以用伴随矩阵顶替逆矩阵——两者差的正是这样一个标量因子（见下文\"更准确的答案\"） 三、更准确的答案：伴随矩阵 RTR4 4.1.7 提到一个更一般的写法：把 $M^{-\\mathsf T}$ 换成 $\\operatorname{adj}(M)^{\\mathsf T}$（伴随矩阵的转置）。 它对任何方阵都有定义，不要求可逆；两者只差一个标量因子：\n$$\\operatorname{adj}(M)^{\\mathsf T} = (\\det M)\\,M^{-\\mathsf T}$$但矩阵可逆时它没有任何优势——给出的方向与 $M^{-\\mathsf T}$ 完全一致 （2000 组随机矩阵：$\\det\u003e0$ 时全部相同，$\\det\u003c0$ 时全部相反，乘上符号后一致）； 至于性能，把两种写法都展开成实际运算后是基本持平（见附录二）。\n它真正派得上用场的地方只有 $\\det M = 0$（退化变换：物体被压成平面或线）。这时 $M^{-\\mathsf T}$ 要除以 0、 直接报废，而伴随仍能给出方向：\nM = diag(1,2,0)（把物体压成 z = 0 平面），n = (0,0,1)：\rM⁻ᵀ 版 cofactor(M)/det → 除以 0 → inf / NaN ✗ 报废\r伴随版 (det\u003c0 ? -1 : 1)·C·n = (0,0,2) → 归一化 (0,0,1) ✓ 正确\r顺便澄清一个常见说法：投影矩阵是可逆的——四种常见配置的行列式都非零，2000 组视图空间点 正投影再反投影的最大误差是 4.6e-13。“投影不可逆\"说的是透视除法那一步（NDC 只剩 3 个分量， 解不回 4 维）；真正不可逆的是退化变换。\n真要在 shader 里用（GPU skinning、程序化变形），可直接抄的写法在文末附录一里， 那里也有一个只在退化变换上触发的符号陷阱。\n四、什么时候你根本不用这么麻烦 RTR4 4.1.7 给了一个常被忽略的省略条件：变换只由平移 + 旋转 + 均匀缩放组成时（不含拉伸、挤压、切变），\n平移不影响法线（法线是向量） 均匀缩放只改变长度，不改变方向 旋转矩阵的转置就是它的逆 → 两次转置（或两次求逆）相互抵消 所以原矩阵 $M$ 可以直接用来变换法线。\n归一化同样能省：\n只有平移 + 旋转：长度不变，根本不需要归一化 再加均匀缩放 $s$：长度变成 $s$ 倍，除以 $s$ 即可 决策表 变换组成 法线变换 归一化 平移 不需要变换 — 平移 + 旋转 直接用 $M$ 不需要 平移 + 旋转 + 均匀缩放 直接用 $M$ 除以缩放因子 含非均匀缩放 / 切变 必须 $M^{-\\mathsf T}$（或 $\\operatorname{adj}^{\\mathsf T}$） 必须 退化变换（$\\det M = 0$） 必须 $\\operatorname{adj}^{\\mathsf T}$ 必须 切向量 T / B 永远直接用 $M$ 视情况 「退化变换」具体指什么：某个轴的缩放为 0——物体被压成一张平面或一条线。 实际会遇到的有：缩放动画的插值经过 0（不是两端为 0，而是中间插出 0 的那一帧）、 美术为了临时隐藏把某个轴设成 0、形变动画把网格压塌。 这时 $M^{-\\mathsf T}$ 要除以 0、直接报废，只有 $\\operatorname{adj}(M)^{\\mathsf T}$ 还能给出方向。 注意它不是\"无害的错”：哪怕那一帧物体小到看不见，NaN 法线照样会被写进缓冲、污染后面的 pass。\n只想拿结论的话，这张表就够了。\n五、工业界怎么做 三个主流引擎的实现都能对上，而且思路惊人地一致：都不在 shader 里做通用求逆。\nUnity UnityObjectToWorldNormal：CPU 端算好逆矩阵传进来；官方注释里把\"用逆转置\"\r改写成\"用逆矩阵 + 向量左乘\"（等价，但省掉一次显式转置——3×3 转置要做\rcomponent shuffle，换乘法顺序是免费的）\rGodot 给每个实例打一个\"非均匀缩放\"标记（INSTANCE_FLAGS_NON_UNIFORM_SCALE），\r只有置位的物体才算 transpose(inverse(mat3(M)))，其余直接用 M\rUE 每实例预计算 InvNonUniformScale，按\"行加权求和\"写——一次省掉转置和缩放\r真正的效率排序是：不算 \u003e 用 CPU 预计算 \u003e 用乘法顺序代替转置 \u003e 在 shader 里算。\n“手写余子式更省\"这个说法并不成立。 两者的真实执行成本基本持平，而手写版还多担一个坑。 把两种写法各自原样编译（顶点着色器）看：\n写法 SPIR-V 指令数 关键指令 transpose(inverse(mat3(M))) 952 字节 17 MatrixInverse ×1（语义指令）+ 矩阵×向量 + Normalize 手写 cofactorMatrix + det + 判断 2072 字节 54 Cross ×3 + Determinant ×1 + Select ×1 注意第一行那个 17 条是假象：MatrixInverse 把展开工作推给了驱动，执行前还得展开成 $C/\\det M$（约 52 条），和手写版的 54 条几乎一样——手写省下的那次除法，被多出来的判断指令抵消了。\n所以写 transpose(inverse(...))。 它更短、意图更清楚，而且把\"怎么展开\"的决定留给驱动 （驱动可能用上硬件特性或更合适的算法）。手写展开等于把这个决定从编译器手里拿走。\n（顺带：$C/\\det M$ 编译出来只有 1 次除法——编译器先算一次倒数再做向量乘标量； 另外 transpose(inverse(m)) * v 里的转置是免费的，被 MatrixInverse 一起吸收了。）\n小结 法线的身份由\"与切向量的关系\"定义，所以它按 $M^{-\\mathsf T}$ 而不是 $M$ 变换 这个解唯一到一个标量因子——于是伴随矩阵能顶替逆矩阵，而归一化不能省 但在\"平移 + 旋转 + 均匀缩放\"下原矩阵就是对的（均匀缩放会改长度，除一下缩放因子即可） 下次写下 transpose(inverse(...)) 之前先问一句：这个物体的变换里有非均匀缩放吗？ 没有就可以省掉；有，就知道为什么省不掉。\n附录一：可直接抄的实现 日常写法：法线矩阵每个物体算一次，CPU 端算好传 uniform。绝大多数项目到此为止。\n// 顶点着色器 vec3 n_world = normalize(normalMatrix * n_object); // normalMatrix 由 CPU 传入 // CPU 端（GLM） glm::mat3 N = glm::transpose(glm::inverse(glm::mat3(model))); 要在 GPU 上算时（GPU skinning 里每根骨骼一个矩阵、程序化变形）：3×3 的 $\\operatorname{adj}(M)^{\\mathsf T}$ 就是余子式矩阵 $C$，它的三列是原矩阵两两列的循环叉积。\n// GLSL 的 mat3(a,b,c) 是「列为 a,b,c」；m[0] 是第一列 mat3 cofactorMatrix(mat3 m) { return mat3(cross(m[1],m[2]), cross(m[2],m[0]), cross(m[0],m[1])); } mat3 M = mat3(model); float det = determinant(M); // ⚠ 只有\"负\"才取反 —— 不能写成 sign(det)： // det = 0 时 GLSL 的 sign 返回 0，会把法线乘成零向量，normalize 之后就是 NaN。 float s = (det \u003c 0.0) ? -1.0 : 1.0; vec3 n_world = normalize(s * cofactorMatrix(M) * n_object); 两个注意点：三对叉积必须循环移位（顺序写错会拿到转置或错的列）；叉积含大数相减， 极端缩放下会掉精度。\n附录二：这条链在面试里会被怎么问 为什么法线不能直接用模型矩阵变换\r→ 非均匀缩放破坏垂直性（用 n·t = 0 这个约束论证）\r→ 那正确的矩阵是什么（M⁻ᵀ，并指出它唯一到标量因子）\r→ 为什么既要求逆又要转置（切线是\"跟着坐标系走\"的量，法线是\"反着走\"的量）\r→ 什么时候可以偷懒（平移 + 旋转 + 均匀缩放）\r→ 矩阵奇异、逆不存在怎么办（伴随矩阵：$​\\det M = 0$ 时它仍能给出方向）\r→ 切向量为什么不一样（同一个变换，两类量的变换规则相反：逆变 / 协变）\r→ 负缩放下法线贴图为什么会错\r参考：Tomas Akenine-Möller 等，《Real-Time Rendering》第 4 版，4.1.7 节 Normal Transform（p.65–67）。 文中所有算例与压力测试数据均可用 3×3 矩阵运算复现。\n",
+  "wordCount" : "638",
   "inLanguage": "zh",
   "datePublished": "2026-09-22T00:00:00+08:00",
   "dateModified": "2026-09-22T00:00:00+08:00",
@@ -243,11 +243,7 @@
                 <a href="#%e4%bd%86%e8%bf%99%e4%b8%aa%e8%a7%a3%e6%98%af%e5%94%af%e4%b8%80%e7%9a%84%e5%90%97" aria-label="但这个解是唯一的吗">但这个解是唯一的吗</a></li></ul>
             </li>
             <li>
-                <a href="#%e4%b8%89%e6%9b%b4%e5%87%86%e7%a1%ae%e7%9a%84%e7%ad%94%e6%a1%88%e4%bc%b4%e9%9a%8f%e7%9f%a9%e9%98%b5" aria-label="三、更准确的答案：伴随矩阵">三、更准确的答案：伴随矩阵</a><ul>
-                    
-            <li>
-                <a href="#%e5%9c%a8-shader-%e9%87%8c%e6%80%8e%e4%b9%88%e5%86%99" aria-label="在 shader 里怎么写">在 shader 里怎么写</a></li></ul>
-            </li>
+                <a href="#%e4%b8%89%e6%9b%b4%e5%87%86%e7%a1%ae%e7%9a%84%e7%ad%94%e6%a1%88%e4%bc%b4%e9%9a%8f%e7%9f%a9%e9%98%b5" aria-label="三、更准确的答案：伴随矩阵">三、更准确的答案：伴随矩阵</a></li>
             <li>
                 <a href="#%e5%9b%9b%e4%bb%80%e4%b9%88%e6%97%b6%e5%80%99%e4%bd%a0%e6%a0%b9%e6%9c%ac%e4%b8%8d%e7%94%a8%e8%bf%99%e4%b9%88%e9%ba%bb%e7%83%a6" aria-label="四、什么时候你根本不用这么麻烦">四、什么时候你根本不用这么麻烦</a><ul>
                     
@@ -255,11 +251,13 @@
                 <a href="#%e5%86%b3%e7%ad%96%e8%a1%a8" aria-label="决策表">决策表</a></li></ul>
             </li>
             <li>
-                <a href="#%e4%ba%94%e5%87%a0%e4%b8%aa%e7%9b%b8%e5%85%b3%e7%9a%84%e5%9d%91" aria-label="五、几个相关的坑">五、几个相关的坑</a></li>
+                <a href="#%e4%ba%94%e5%b7%a5%e4%b8%9a%e7%95%8c%e6%80%8e%e4%b9%88%e5%81%9a" aria-label="五、工业界怎么做">五、工业界怎么做</a></li>
             <li>
                 <a href="#%e5%b0%8f%e7%bb%93" aria-label="小结">小结</a></li>
             <li>
-                <a href="#%e9%99%84%e5%bd%95%e8%bf%99%e6%9d%a1%e9%93%be%e5%9c%a8%e9%9d%a2%e8%af%95%e9%87%8c%e4%bc%9a%e8%a2%ab%e6%80%8e%e4%b9%88%e9%97%ae" aria-label="附录：这条链在面试里会被怎么问">附录：这条链在面试里会被怎么问</a>
+                <a href="#%e9%99%84%e5%bd%95%e4%b8%80%e5%8f%af%e7%9b%b4%e6%8e%a5%e6%8a%84%e7%9a%84%e5%ae%9e%e7%8e%b0" aria-label="附录一：可直接抄的实现">附录一：可直接抄的实现</a></li>
+            <li>
+                <a href="#%e9%99%84%e5%bd%95%e4%ba%8c%e8%bf%99%e6%9d%a1%e9%93%be%e5%9c%a8%e9%9d%a2%e8%af%95%e9%87%8c%e4%bc%9a%e8%a2%ab%e6%80%8e%e4%b9%88%e9%97%ae" aria-label="附录二：这条链在面试里会被怎么问">附录二：这条链在面试里会被怎么问</a>
             </li>
         </ul>
     </div>
@@ -269,11 +267,11 @@
 <p>法线要用 $M^{-\mathsf T}$ 变换，而不是 $M$。记住这一句就够了。</p>
 <p><strong>① 只有存在非均匀缩放或切变时，这件事才有意义。</strong>
 如果变换只由平移、旋转、均匀缩放组成，直接用 $M$ 就是对的。</p>
-<p><strong>② &ldquo;逆转置&quot;只是特例，更一般的答案是伴随矩阵的转置。</strong>
-逆转置要求矩阵可逆，而伴随矩阵总是存在、<strong>不需要做除法</strong>。
-另有一个符号陷阱要留意：$\det M < 0$（镜像 / 负缩放）时，伴随给出的方向与逆转置<strong>相反</strong>——
-用伴随就必须补一个符号（注意写 <code>det &lt; 0 ? -1 : 1</code>，<strong>不能写 <code>sign(det)</code></strong>——退化变换时 <code>sign(0)=0</code> 会把法线乘成零向量）。漏掉它<strong>只有镜像物体上的法线是反的</strong>。</p>
-<p><strong>③ 工业界的取向是&quot;尽量不在 shader 里算&rdquo;。</strong>
+<p><strong>② 矩阵可逆时，$M^{-\mathsf T}$ 就够了。</strong>
+伴随矩阵的转置 $\operatorname{adj}(M)^{\mathsf T}$ 是更一般的写法（奇异矩阵也有定义），
+但可逆时它给出的方向与 $M^{-\mathsf T}$ 完全一致，只在 $\det M = 0$（退化变换）时才多出什么。
+用 $M^{-\mathsf T}$ 不必额外操心符号——符号已经含在里面了。</p>
+<p><strong>③ 工业界的取向是&quot;尽量不在 shader 里算&quot;。</strong>
 Unity 和 UE 靠 CPU 端预计算；Godot 给每个实例打标记，只有非均匀缩放时才在顶点着色器里算一次。
 真正的效率排序是：<strong>不算 &gt; 用 CPU 预计算 &gt; 换乘法顺序 &gt; 在 shader 里算</strong>。</p>
 <h2 id="一问题法线为什么不能用同一个矩阵变换">一、问题：法线为什么不能用同一个矩阵变换<a hidden class="anchor" aria-hidden="true" href="#一问题法线为什么不能用同一个矩阵变换">#</a></h2>
@@ -318,94 +316,24 @@ $$A = \lambda I \quad\Longrightarrow\quad N = \lambda\,M^{-\mathsf T}$$<p><stron
 <li>为什么可以用<strong>伴随矩阵</strong>顶替逆矩阵——两者差的正是这样一个标量因子（见下文&quot;更准确的答案&quot;）</li>
 </ol>
 <h2 id="三更准确的答案伴随矩阵">三、更准确的答案：伴随矩阵<a hidden class="anchor" aria-hidden="true" href="#三更准确的答案伴随矩阵">#</a></h2>
-<p>&ldquo;逆转置&quot;有一个前提——$M$ 必须可逆。而</p>
-$$M^{-1} = \frac{\operatorname{adj}(M)}{\det M}$$<p>当 $\det M = 0$（矩阵奇异）时，逆不存在。但<strong>伴随矩阵总是存在</strong>。用伴随的转置来变换：</p>
-$$\operatorname{adj}(M)^{\mathsf T} = (\det M)\,M^{-\mathsf T}$$<p>按第二节的结论，它与 $M^{-\mathsf T}$ 只差一个标量因子。但要注意这个因子是<strong>带符号</strong>的：</p>
-<table>
-	<thead>
-			<tr>
-					<th>$\det(M)$</th>
-					<th>$\operatorname{adj}(M)^{\mathsf T}$ 给出的方向</th>
-			</tr>
-	</thead>
-	<tbody>
-			<tr>
-					<td>$> 0$（保向变换）</td>
-					<td>与 $M^{-\mathsf T}$ 相同 ✓</td>
-			</tr>
-			<tr>
-					<td>$< 0$（镜像 / 负缩放）</td>
-					<td>与 $M^{-\mathsf T}$ <strong>相反</strong></td>
-			</tr>
-	</tbody>
-</table>
-<p>第二行不是缺陷，而是 $\det$ <strong>带符号</strong>的直接后果。
-（&ldquo;负缩放要翻转法线&quot;这类说法就是从这类符号问题里来的——但那句话说得含糊，
-它可能指三件不同的事，后面会把它们分开。）</p>
-<blockquote>
-<p>当 $\det M > 0$ 时：<strong>伴随的转置 + 归一化 = 正确答案，而且不需要求逆。</strong></p>
-</blockquote>
-<p>实测：3000 组随机矩阵里，$\det>0$ 的 1539 组方向全部一致，$\det<0$ 的 1461 组方向全部相反——没有一个例外。</p>
-<p>那什么时候真会碰到不可逆的变换？<strong>很少</strong>：</p>
-<ul>
-<li><strong>投影矩阵不是</strong>。它在齐次坐标下可逆——四种常见配置（三种透视 + 正交）的行列式都非零，
-2000 组视图空间点正投影再反投影的最大误差是 4.6e-13。
-&ldquo;投影不可逆&quot;这个说法指的是<strong>透视除法那一步</strong>：NDC 只剩 3 个分量，4 个未知数 3 个方程，解不回 4 维。
-但管线里有额外信息——$z_{\text{ndc}}$ 编码了深度，由它反推 $w$ 就能重建。
-这正是引擎里&quot;从 NDC 反投影回视图空间&quot;的做法：不在投影空间里硬算光照，而是<strong>先反投影回视图空间</strong>。</li>
-<li>真正不可逆的是<strong>退化变换</strong>：某个轴的缩放因子为 0（物体被压成一个平面）、或者动画形变塌陷。</li>
-</ul>
-<p>所以伴随矩阵的价值主要不在&quot;救奇异矩阵&rdquo;，而在下面这件事：</p>
-<blockquote>
-<p><strong>它不需要做除法。</strong> 要用 $M^{-\mathsf T}$，你得先算余子式、再除以 $\det M$；
-而 $\operatorname{adj}(M)^{\mathsf T} = C$ 直接就能用。GPU 上除法比乘法贵，
-而且 $\det M$ 很小时&quot;除以一个小数&quot;还会放大误差——不用除的写法两头都占便宜。</p>
-</blockquote>
-<p>一个小例子（退化变换下才成立，可手算）：$M = \operatorname{diag}(1,2,0)$，把 z 方向压扁。
-$\det M = 0$，逆不存在；但 $\operatorname{adj}(M)^{\mathsf T} = \operatorname{diag}(0,0,2)$，
-作用在 $\mathbf{n} = (0,0,1)$ 上得到 $(0,0,2)$，归一化后是 $(0,0,1)$。</p>
-<p>物体被压成 $z = 0$ 平面，而这个平面的法线正是 $(0,0,1)$——<strong>伴随给出了正确答案。</strong></p>
-<h3 id="在-shader-里怎么写">在 shader 里怎么写<a hidden class="anchor" aria-hidden="true" href="#在-shader-里怎么写">#</a></h3>
-<p><strong>绝大多数情况下你不需要在 shader 里算它</strong>——法线矩阵每个物体算一次，CPU 端算好传 uniform 是标准做法。
-真要在 GPU 上算（GPU skinning 里每根骨骼一个矩阵、程序化变形），用这个恒等式：</p>
-$$\operatorname{adj}(M)^{\mathsf T} = \text{余子式矩阵 } C$$<p>也就是不必&quot;先求伴随再转置&rdquo;，直接构造 $C$ 就行；而 3×3 的 $C$ 的三列正好是原矩阵两两列的叉积：</p>
-<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-glsl" data-lang="glsl"><span class="line"><span class="cl"><span class="c1">// GLSL 的 mat3(a,b,c) 是「列为 a,b,c」；m[0] 是第一列</span>
-</span></span><span class="line"><span class="cl"><span class="n">mat3</span> <span class="n">cofactorMatrix</span><span class="p">(</span><span class="n">mat3</span> <span class="n">m</span><span class="p">)</span> <span class="p">{</span>
-</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">mat3</span><span class="p">(</span><span class="n">cross</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="n">m</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span> <span class="n">cross</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span><span class="n">m</span><span class="p">[</span><span class="mo">0</span><span class="p">]),</span> <span class="n">cross</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="mo">0</span><span class="p">],</span><span class="n">m</span><span class="p">[</span><span class="mi">1</span><span class="p">]));</span>
-</span></span><span class="line"><span class="cl"><span class="p">}</span>
-</span></span><span class="line"><span class="cl">
-</span></span><span class="line"><span class="cl"><span class="n">mat3</span> <span class="n">M</span> <span class="o">=</span> <span class="n">mat3</span><span class="p">(</span><span class="n">model</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl"><span class="k">float</span> <span class="n">det</span> <span class="o">=</span> <span class="n">determinant</span><span class="p">(</span><span class="n">M</span><span class="p">);</span>
-</span></span><span class="line"><span class="cl"><span class="c1">// ⚠ 只有&#34;负&#34;才取反——不能写 sign(det)！</span>
-</span></span><span class="line"><span class="cl"><span class="c1">//   退化变换（det = 0）时 sign 返回 0，会把法线乘成零向量，normalize 之后就是 NaN。</span>
-</span></span><span class="line"><span class="cl"><span class="k">float</span> <span class="n">s</span> <span class="o">=</span> <span class="p">(</span><span class="n">det</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">?</span> <span class="o">-</span><span class="mf">1.0</span> <span class="o">:</span> <span class="mf">1.0</span><span class="p">;</span>
-</span></span><span class="line"><span class="cl"><span class="k">vec3</span> <span class="n">n_world</span> <span class="o">=</span> <span class="n">normalize</span><span class="p">(</span><span class="n">s</span> <span class="o">*</span> <span class="n">cofactorMatrix</span><span class="p">(</span><span class="n">M</span><span class="p">)</span> <span class="o">*</span> <span class="n">n_object</span><span class="p">);</span>
-</span></span></code></pre></div><p><strong>这个符号不是多此一举</strong>：前面已经推出 $C = \operatorname{adj}(M)^{\mathsf T} = \det(M)\,M^{-\mathsf T}$，而 $\det(M)$ <strong>带符号</strong>。</p>
-<p><strong>但它也不能图省事写 <code>sign(det)</code></strong> —— GLSL 的 <code>sign(0)</code> 返回 <strong>0</strong>（不是 1），
-而 $\det M = 0$ 恰恰就是伴随矩阵唯一不可替代的场合。写成 <code>sign(det)</code>，这一行会在<strong>最需要它的时候</strong>
-把法线乘成零向量，<code>normalize</code> 之后得到 NaN——一个只在退化变换上触发的 NaN，比方向反了更难查：</p>
+<p>RTR4 4.1.7 提到一个更一般的写法：把 $M^{-\mathsf T}$ 换成 $\operatorname{adj}(M)^{\mathsf T}$（伴随矩阵的转置）。
+它对<strong>任何</strong>方阵都有定义，不要求可逆；两者只差一个标量因子：</p>
+$$\operatorname{adj}(M)^{\mathsf T} = (\det M)\,M^{-\mathsf T}$$<p><strong>但矩阵可逆时它没有任何优势</strong>——给出的方向与 $M^{-\mathsf T}$ 完全一致
+（2000 组随机矩阵：$\det>0$ 时全部相同，$\det<0$ 时全部相反，乘上符号后一致）；
+至于性能，把两种写法都展开成实际运算后是<strong>基本持平</strong>（见附录二）。</p>
+<p><strong>它真正派得上用场的地方只有 $\det M = 0$</strong>（退化变换：物体被压成平面或线）。这时 $M^{-\mathsf T}$ 要除以 0、
+直接报废，而伴随仍能给出方向：</p>
 <pre><code>M = diag(1,2,0)（把物体压成 z = 0 平面），n = (0,0,1)：
-  cofactor(M)·n           = (0, 0, 2)    ← 伴随给出的答案，正确
-  sign(0)·(…)             = (0, 0, 0)    ← 归零 → normalize 得 NaN  ✗
-  (det &lt; 0 ? -1 : 1)·(…)  = (0, 0, 2)    ← 保住答案               ✓
-
-2000 组随机矩阵实测：
-  det &gt; 0（保向）：与 M⁻ᵀ 方向相同 1005 组，相反 0 组
-  det &lt; 0（镜像）：与 M⁻ᵀ 方向相同 0 组，相反 995 组   ← 全反
+  M⁻ᵀ 版     cofactor(M)/det → 除以 0 → inf / NaN          ✗ 报废
+  伴随版     (det&lt;0 ? -1 : 1)·C·n = (0,0,2) → 归一化 (0,0,1)  ✓ 正确
 </code></pre>
-<p>漏掉这个符号，<strong>只有镜像物体上的法线是反的</strong>——别的物体全对，最难查的那种 bug。</p>
-<p><strong>但修符号要算 $\det M$，而 $M^{-\mathsf T}$ 本来就要算它</strong>（求逆的除法用得到）。
-所以伴随版省下的只是<strong>一次除法</strong>。这够不够抵消多出来的一次符号修正？把两种写法各编一遍看字节码：</p>
-<pre><code>transpose(inverse(m))      SPIR-V 18 条指令 —— 其中&quot;求逆&quot;是一条**语义指令**，
-                           驱动还得把它展开成余子式 + det + 除法
-cofactor(m) + 符号修正     SPIR-V 22 条指令 —— 3 个 Cross + Determinant + FSign，已经展开完了
-</code></pre>
-<p><strong>伴随版在执行层面确实略快</strong>：它省掉的那次除法（GPU 上要多周期）比加上的符号修正值钱，
-而且没有任何除法意味着<strong>极端缩放下的精度也更好</strong>。所以这个方案本身是成立的，
-本节开头那句&quot;伴随不需要除法&quot;也不是空话。</p>
-<p><strong>但差距只有几条指令</strong>，而代价是一个&quot;漏了就在镜像物体上出错&quot;的坑。
-这笔账怎么算都不划算——<strong>真要省，就别在 shader 里算</strong>（见下文决策表与结论第 ③ 条）。</p>
-<p>另外两个注意点：<strong>顺序必须是循环移位的三对叉积</strong>；叉积含大数相减，极端缩放下会掉精度。</p>
+<p>顺便澄清一个常见说法：<strong>投影矩阵是可逆的</strong>——四种常见配置的行列式都非零，2000 组视图空间点
+正投影再反投影的最大误差是 4.6e-13。&ldquo;投影不可逆&quot;说的是<strong>透视除法</strong>那一步（NDC 只剩 3 个分量，
+解不回 4 维）；真正不可逆的是退化变换。</p>
+<blockquote>
+<p>真要在 shader 里用（GPU skinning、程序化变形），可直接抄的写法在文末<strong>附录一</strong>里，
+那里也有一个只在退化变换上触发的符号陷阱。</p>
+</blockquote>
 <h2 id="四什么时候你根本不用这么麻烦">四、什么时候你根本不用这么麻烦<a hidden class="anchor" aria-hidden="true" href="#四什么时候你根本不用这么麻烦">#</a></h2>
 <p>RTR4 4.1.7 给了一个常被忽略的省略条件：变换只由<strong>平移 + 旋转 + 均匀缩放</strong>组成时（不含拉伸、挤压、切变），</p>
 <ul>
@@ -450,7 +378,7 @@ cofactor(m) + 符号修正     SPIR-V 22 条指令 —— 3 个 Cross + Determin
 					<td>必须</td>
 			</tr>
 			<tr>
-					<td>投影等奇异变换</td>
+					<td>退化变换（$\det M = 0$）</td>
 					<td><strong>必须 $\operatorname{adj}^{\mathsf T}$</strong></td>
 					<td>必须</td>
 			</tr>
@@ -461,27 +389,56 @@ cofactor(m) + 符号修正     SPIR-V 22 条指令 —— 3 个 Cross + Determin
 			</tr>
 	</tbody>
 </table>
+<blockquote>
+<p><strong>「退化变换」具体指什么</strong>：某个轴的缩放为 0——物体被压成一张平面或一条线。
+实际会遇到的有：缩放动画的<strong>插值经过 0</strong>（不是两端为 0，而是中间插出 0 的那一帧）、
+美术为了临时隐藏把某个轴设成 0、形变动画把网格压塌。
+这时 $M^{-\mathsf T}$ 要除以 0、直接报废，只有 $\operatorname{adj}(M)^{\mathsf T}$ 还能给出方向。
+注意它<strong>不是&quot;无害的错&rdquo;</strong>：哪怕那一帧物体小到看不见，NaN 法线照样会被写进缓冲、污染后面的 pass。</p>
+</blockquote>
 <p>只想拿结论的话，这张表就够了。</p>
-<h2 id="五几个相关的坑">五、几个相关的坑<a hidden class="anchor" aria-hidden="true" href="#五几个相关的坑">#</a></h2>
-<p><strong>TBN 里三个向量为什么不一样</strong>：切向量跟着几何走（按 $M$），法线要保持垂直性（按 $M^{-\mathsf T}$）。
-在&quot;均匀缩放 + 旋转&quot;下两者恰好一致，所以写错了也不暴露；一旦有<strong>非均匀缩放</strong>，法线贴图立刻不对。
-工程上更省事的做法是只存切线 $\mathbf{T}$，副切线用 $\mathbf{B} = \mathbf{N}' \times \mathbf{T}'$ 现场叉乘——
-省一个顶点属性，也躲开&rdquo;$\mathbf{B}$ 该按哪个矩阵变换&quot;的纠结。</p>
-<p><strong>负缩放（镜像）<strong>最容易混：它翻转的</strong>不是法线，是手性</strong>——用 $M^{-\mathsf T}$ 算出的法线自动正确
-（$\det M$ 的符号已含在里面）。真正要处理的是依赖左右手系的量：三角形绕序与剔除方向
-（UE 判 <code>IsLocalToWorldDeterminantNegative()</code>）、TBN 副切线方向
-（Godot 存 <code>binormal_sign</code>、UE 存 <code>TangentToWorldSign</code>）。
-而&quot;双面材质翻法线&quot;（UE 的 <code>TwoSidedSign</code>）是<strong>另一回事</strong>——那是面朝向。</p>
-<p><strong>归一化时机</strong>：顶点着色器里归一化远比逐像素便宜，但插值会改长度，走法线贴图的路径仍需再归一化一次。
-<strong>跨平台</strong>：移动端 <code>mediump</code> 动态范围不够，法线矩阵相关计算用 <code>highp</code>；逐像素归一化要开方，低端设备上不免费。</p>
-<p><strong>&ldquo;负缩放要翻转法线&quot;这句话为什么容易把人绕进去</strong>：它混了三件不同的事，只是起因相同（$\det M < 0$）：</p>
-<pre><code>① 建模层：镜像一个模型 → 三角形绕序反 → 面的正反面颠倒
-   → 建模工具里要&quot;Flip Normals&quot;（Blender）——说的是**绕序**
-② 着色器层：用伴随当法线矩阵 → 补符号（`det &lt; 0 ? -1 : 1`，不是 `sign(det)`）
-   —— 说的是**法线向量**，但用 $M^{-\mathsf T}$ 就没这问题
-③ 手性层：TBN 副切线方向、剔除方向——说的是**手性**
+<h2 id="五工业界怎么做">五、工业界怎么做<a hidden class="anchor" aria-hidden="true" href="#五工业界怎么做">#</a></h2>
+<p>三个主流引擎的实现都能对上，而且思路惊人地一致：<strong>都不在 shader 里做通用求逆。</strong></p>
+<pre><code>Unity    UnityObjectToWorldNormal：CPU 端算好逆矩阵传进来；官方注释里把&quot;用逆转置&quot;
+         改写成&quot;用逆矩阵 + 向量左乘&quot;（等价，但省掉一次显式转置——3×3 转置要做
+         component shuffle，换乘法顺序是免费的）
+Godot    给每个实例打一个&quot;非均匀缩放&quot;标记（INSTANCE_FLAGS_NON_UNIFORM_SCALE），
+         只有置位的物体才算 transpose(inverse(mat3(M)))，其余直接用 M
+UE       每实例预计算 InvNonUniformScale，按&quot;行加权求和&quot;写——一次省掉转置和缩放
 </code></pre>
-<p><strong>所以这句话单看判不了对错</strong>——先问清说的是哪一个。三者处理位置不同，混着说必然自相矛盾。</p>
+<p>真正的效率排序是：<strong>不算 &gt; 用 CPU 预计算 &gt; 用乘法顺序代替转置 &gt; 在 shader 里算。</strong></p>
+<p><strong>&ldquo;手写余子式更省&quot;这个说法并不成立。</strong> 两者的真实执行成本基本持平，而手写版还多担一个坑。
+把两种写法各自原样编译（顶点着色器）看：</p>
+<table>
+	<thead>
+			<tr>
+					<th>写法</th>
+					<th>SPIR-V</th>
+					<th>指令数</th>
+					<th>关键指令</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>transpose(inverse(mat3(M)))</code></td>
+					<td>952 字节</td>
+					<td>17</td>
+					<td><code>MatrixInverse</code> ×1（<strong>语义指令</strong>）+ 矩阵×向量 + Normalize</td>
+			</tr>
+			<tr>
+					<td>手写 <code>cofactorMatrix + det + 判断</code></td>
+					<td>2072 字节</td>
+					<td>54</td>
+					<td><code>Cross</code> ×3 + <code>Determinant</code> ×1 + <code>Select</code> ×1</td>
+			</tr>
+	</tbody>
+</table>
+<p>注意第一行那个 17 条是<strong>假象</strong>：<code>MatrixInverse</code> 把展开工作推给了驱动，执行前还得展开成
+$C/\det M$（约 52 条），和手写版的 54 条几乎一样——<strong>手写省下的那次除法，被多出来的判断指令抵消了。</strong></p>
+<p><strong>所以写 <code>transpose(inverse(...))</code>。</strong> 它更短、意图更清楚，而且把&quot;怎么展开&quot;的决定留给驱动
+（驱动可能用上硬件特性或更合适的算法）。<strong>手写展开等于把这个决定从编译器手里拿走。</strong></p>
+<p>（顺带：$C/\det M$ 编译出来只有 1 次除法——编译器先算一次倒数再做向量乘标量；
+另外 <code>transpose(inverse(m)) * v</code> 里的转置是免费的，被 <code>MatrixInverse</code> 一起吸收了。）</p>
 <h2 id="小结">小结<a hidden class="anchor" aria-hidden="true" href="#小结">#</a></h2>
 <ul>
 <li>法线的身份由&quot;与切向量的关系&quot;定义，所以它按 $M^{-\mathsf T}$ 而不是 $M$ 变换</li>
@@ -491,13 +448,34 @@ cofactor(m) + 符号修正     SPIR-V 22 条指令 —— 3 个 Cross + Determin
 <p>下次写下 <code>transpose(inverse(...))</code> 之前先问一句：<strong>这个物体的变换里有非均匀缩放吗？</strong>
 没有就可以省掉；有，就知道为什么省不掉。</p>
 <hr>
-<h2 id="附录这条链在面试里会被怎么问">附录：这条链在面试里会被怎么问<a hidden class="anchor" aria-hidden="true" href="#附录这条链在面试里会被怎么问">#</a></h2>
+<h2 id="附录一可直接抄的实现">附录一：可直接抄的实现<a hidden class="anchor" aria-hidden="true" href="#附录一可直接抄的实现">#</a></h2>
+<p><strong>日常写法</strong>：法线矩阵每个物体算一次，CPU 端算好传 uniform。绝大多数项目到此为止。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-glsl" data-lang="glsl"><span class="line"><span class="cl"><span class="c1">// 顶点着色器</span>
+</span></span><span class="line"><span class="cl"><span class="k">vec3</span> <span class="n">n_world</span> <span class="o">=</span> <span class="n">normalize</span><span class="p">(</span><span class="n">normalMatrix</span> <span class="o">*</span> <span class="n">n_object</span><span class="p">);</span>   <span class="c1">// normalMatrix 由 CPU 传入</span>
+</span></span></code></pre></div><div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="c1">// CPU 端（GLM）
+</span></span></span><span class="line"><span class="cl"><span class="n">glm</span><span class="o">::</span><span class="n">mat3</span> <span class="n">N</span> <span class="o">=</span> <span class="n">glm</span><span class="o">::</span><span class="n">transpose</span><span class="p">(</span><span class="n">glm</span><span class="o">::</span><span class="n">inverse</span><span class="p">(</span><span class="n">glm</span><span class="o">::</span><span class="n">mat3</span><span class="p">(</span><span class="n">model</span><span class="p">)));</span>
+</span></span></code></pre></div><p><strong>要在 GPU 上算时</strong>（GPU skinning 里每根骨骼一个矩阵、程序化变形）：3×3 的
+$\operatorname{adj}(M)^{\mathsf T}$ 就是余子式矩阵 $C$，它的三列是原矩阵两两列的循环叉积。</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-glsl" data-lang="glsl"><span class="line"><span class="cl"><span class="c1">// GLSL 的 mat3(a,b,c) 是「列为 a,b,c」；m[0] 是第一列</span>
+</span></span><span class="line"><span class="cl"><span class="n">mat3</span> <span class="n">cofactorMatrix</span><span class="p">(</span><span class="n">mat3</span> <span class="n">m</span><span class="p">)</span> <span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">mat3</span><span class="p">(</span><span class="n">cross</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span><span class="n">m</span><span class="p">[</span><span class="mi">2</span><span class="p">]),</span> <span class="n">cross</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span><span class="n">m</span><span class="p">[</span><span class="mo">0</span><span class="p">]),</span> <span class="n">cross</span><span class="p">(</span><span class="n">m</span><span class="p">[</span><span class="mo">0</span><span class="p">],</span><span class="n">m</span><span class="p">[</span><span class="mi">1</span><span class="p">]));</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">mat3</span> <span class="n">M</span> <span class="o">=</span> <span class="n">mat3</span><span class="p">(</span><span class="n">model</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="k">float</span> <span class="n">det</span> <span class="o">=</span> <span class="n">determinant</span><span class="p">(</span><span class="n">M</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// ⚠ 只有&#34;负&#34;才取反 —— 不能写成 sign(det)：</span>
+</span></span><span class="line"><span class="cl"><span class="c1">//   det = 0 时 GLSL 的 sign 返回 0，会把法线乘成零向量，normalize 之后就是 NaN。</span>
+</span></span><span class="line"><span class="cl"><span class="k">float</span> <span class="n">s</span> <span class="o">=</span> <span class="p">(</span><span class="n">det</span> <span class="o">&lt;</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">?</span> <span class="o">-</span><span class="mf">1.0</span> <span class="o">:</span> <span class="mf">1.0</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">vec3</span> <span class="n">n_world</span> <span class="o">=</span> <span class="n">normalize</span><span class="p">(</span><span class="n">s</span> <span class="o">*</span> <span class="n">cofactorMatrix</span><span class="p">(</span><span class="n">M</span><span class="p">)</span> <span class="o">*</span> <span class="n">n_object</span><span class="p">);</span>
+</span></span></code></pre></div><p>两个注意点：<strong>三对叉积必须循环移位</strong>（顺序写错会拿到转置或错的列）；叉积含大数相减，
+极端缩放下会掉精度。</p>
+<h2 id="附录二这条链在面试里会被怎么问">附录二：这条链在面试里会被怎么问<a hidden class="anchor" aria-hidden="true" href="#附录二这条链在面试里会被怎么问">#</a></h2>
 <pre><code>为什么法线不能直接用模型矩阵变换
   → 非均匀缩放破坏垂直性（用 n·t = 0 这个约束论证）
   → 那正确的矩阵是什么（M⁻ᵀ，并指出它唯一到标量因子）
   → 为什么既要求逆又要转置（切线是&quot;跟着坐标系走&quot;的量，法线是&quot;反着走&quot;的量）
   → 什么时候可以偷懒（平移 + 旋转 + 均匀缩放）
-  → 矩阵奇异、逆不存在怎么办（伴随矩阵）
+  → 矩阵奇异、逆不存在怎么办（伴随矩阵：$​\det M = 0$ 时它仍能给出方向）
   → 切向量为什么不一样（同一个变换，两类量的变换规则相反：逆变 / 协变）
   → 负缩放下法线贴图为什么会错
 </code></pre>
