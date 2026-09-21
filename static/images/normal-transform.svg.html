@@ -1,0 +1,39 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+*{margin:0;padding:0} body{background:#fff;font-family:"Segoe UI","Microsoft YaHei",sans-serif}
+svg{display:block}
+.ttl{font-size:19px;font-weight:600;text-anchor:middle}
+.sub{font-size:13.5px;fill:#6b7280;text-anchor:middle}
+.cap{font-size:15px;font-weight:600;text-anchor:middle}
+.shape{fill:none;stroke:#94a3b8;stroke-width:2.2}
+.legend{font-size:13.5px;fill:#374151}
+</style></head><body>
+<svg width="1240" height="476" viewBox="0 0 1240 476" xmlns="http://www.w3.org/2000/svg">
+<defs><marker id="ah2563eb" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,1 L8,4.5 L0,8 z" fill="#2563eb"/></marker><marker id="ahdc2626" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,1 L8,4.5 L0,8 z" fill="#dc2626"/></marker><marker id="ah16a34a" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,1 L8,4.5 L0,8 z" fill="#16a34a"/></marker><marker id="ah111827" markerWidth="9" markerHeight="9" refX="7.5" refY="4.5" orient="auto"><path d="M0,1 L8,4.5 L0,8 z" fill="#111827"/></marker></defs>
+<rect x="8" y="8" width="1224" height="460" rx="10" fill="#fbfcfd" stroke="#e5e7eb"/>
+<text x="208" y="36" class="ttl" fill="#111827">① 原始几何</text>
+<text x="208" y="62" class="sub">单位圆 · n ⊥ t</text>
+<circle cx="208" cy="232" r="106" class="shape"/>
+<line x1="283.0" y1="157.0" x2="224.5" y2="98.6" stroke="#2563eb" stroke-width="2.7" marker-end="url(#ah2563eb)"/>
+<line x1="283.0" y1="157.0" x2="341.4" y2="98.6" stroke="#111827" stroke-width="3.0" marker-end="url(#ah111827)"/>
+<polyline points="266.5,140.6 283.0,124.1 299.4,140.6" fill="none" stroke="#16a34a" stroke-width="2.2"/>
+<circle cx="283.0" cy="157.0" r="5.5" fill="#111827"/>
+<text x="208" y="404" class="cap" fill="#111827">n·t = 0　垂直</text>
+<text x="620" y="36" class="ttl" fill="#dc2626">② 缩放后：法线也用 M</text>
+<text x="620" y="62" class="sub">这是错的做法</text>
+<ellipse cx="620" cy="232" rx="191" ry="106" class="shape"/>
+<line x1="754.9" y1="157.0" x2="682.6" y2="116.9" stroke="#2563eb" stroke-width="2.7" marker-end="url(#ah2563eb)"/>
+<line x1="754.9" y1="157.0" x2="827.2" y2="116.9" stroke="#dc2626" stroke-width="3.0" marker-end="url(#ahdc2626)"/>
+<polyline points="734.5,145.7 754.9,134.4 775.3,145.7" fill="none" stroke="#dc2626" stroke-width="2.2"/>
+<circle cx="754.9" cy="157.0" r="5.5" fill="#111827"/>
+<text x="620" y="404" class="cap" fill="#dc2626">n′·t′ = -1.12 ≠ 0　夹角 122°</text>
+<text x="1032" y="36" class="ttl" fill="#16a34a">③ 缩放后：法线用 M⁻ᵀ</text>
+<text x="1032" y="62" class="sub">这是对的做法</text>
+<ellipse cx="1032" cy="232" rx="191" ry="106" class="shape"/>
+<line x1="1166.9" y1="157.0" x2="1094.6" y2="116.9" stroke="#2563eb" stroke-width="2.7" marker-end="url(#ah2563eb)"/>
+<line x1="1166.9" y1="157.0" x2="1207.1" y2="84.8" stroke="#16a34a" stroke-width="3.0" marker-end="url(#ah16a34a)"/>
+<polyline points="1146.5,145.7 1157.9,125.3 1178.2,136.7" fill="none" stroke="#16a34a" stroke-width="2.2"/>
+<circle cx="1166.9" cy="157.0" r="5.5" fill="#111827"/>
+<text x="1032" y="404" class="cap" fill="#16a34a">n′·t′ = 0　垂直保持</text>
+<line x1="208" y1="80" x2="208" y2="376" stroke="#e5e7eb" stroke-dasharray="3 5"/><line x1="620" y1="80" x2="620" y2="376" stroke="#e5e7eb" stroke-dasharray="3 5"/>
+<text x="620" y="462" class="legend" text-anchor="middle">箭头都从曲线上的同一个点出发　蓝 = 切线 t′（永远按 M 变换）　红/绿 = 法线　直角标记 = 用来判断垂直</text>
+</svg></body></html>

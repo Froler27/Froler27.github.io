@@ -35,6 +35,13 @@
 &lt;/ul&gt;</description>
     </item>
     <item>
+      <title>为什么法线不能直接用模型矩阵变换？</title>
+      <link>https://froler27.github.io/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/</link>
+      <pubDate>Tue, 22 Sep 2026 00:00:00 +0800</pubDate>
+      <guid>https://froler27.github.io/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/</guid>
+      <description>从 n·t = 0 这个约束出发推导法线变换矩阵，说清它唯一到什么程度、什么时候可以省掉、以及矩阵奇异时该怎么办。</description>
+    </item>
+    <item>
       <title>这个博客要写什么</title>
       <link>https://froler27.github.io/posts/hello/</link>
       <pubDate>Tue, 22 Sep 2026 00:00:00 +0800</pubDate>
