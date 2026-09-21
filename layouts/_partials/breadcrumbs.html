@@ -1,0 +1,30 @@
+{{- /*
+  覆盖 PaperMod 自带的面包屑模板。
+
+  原版问题：它只在末尾无条件输出一个 › 箭头，代表"当前页"，但从不输出当前页的标题。
+  结果 section 页（如 /posts/）的面包屑就变成孤零零的「主页 ›」，尾巴悬空。
+  这里补上当前页标题（首尾一致：主页 › 文章 › 当前文章）。
+*/ -}}
+{{- if (.Param "ShowBreadCrumbs") -}}
+<nav class="breadcrumbs" role="navigation" aria-label="Breadcrumb">
+    {{- $ancestors := .Ancestors.Reverse -}}
+    {{- range $i, $bc := $ancestors }}
+        {{- if eq $i 0 }}
+            <a href="{{ $bc.RelPermalink }}">{{ i18n "home" | default "Home" }}</a>
+        {{- else }}
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-right">
+                <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+            <a href="{{ $bc.RelPermalink }}">{{ $bc.Title }}</a>
+        {{- end }}
+    {{- end }}
+    {{- if and (not .IsHome) .Title }}
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-right">
+            <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+        <span class="breadcrumbs-current">{{ .Title }}</span>
+    {{- end }}
+</nav>
+{{- end -}}

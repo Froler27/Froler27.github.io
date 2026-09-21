@@ -2,9 +2,6 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
   xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
-    <loc>https://froler27.github.io/posts/</loc>
-    <lastmod>2026-09-22T00:00:00+08:00</lastmod>
-  </url><url>
     <loc>https://froler27.github.io/tags/</loc>
     <lastmod>2026-09-22T00:00:00+08:00</lastmod>
   </url><url>
@@ -15,6 +12,9 @@
     <lastmod>2026-09-22T00:00:00+08:00</lastmod>
   </url><url>
     <loc>https://froler27.github.io/tags/%E9%9A%8F%E7%AC%94/</loc>
+    <lastmod>2026-09-22T00:00:00+08:00</lastmod>
+  </url><url>
+    <loc>https://froler27.github.io/posts/</loc>
     <lastmod>2026-09-22T00:00:00+08:00</lastmod>
   </url><url>
     <loc>https://froler27.github.io/posts/hello/</loc>
