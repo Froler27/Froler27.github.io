@@ -1,0 +1,77 @@
+baseURL = "https://froler27.github.io/"
+locale = "zh-cn"
+defaultContentLanguage = "zh"
+title = "幻域 · 渲染笔记"
+theme = "PaperMod"
+publishDir = "docs"
+enableRobotsTXT = true
+pagination.pagerSize = 10
+
+# 首页额外输出 JSON 索引 —— PaperMod 的搜索页要用
+[outputs]
+  home = ["HTML", "RSS", "JSON"]
+
+# 允许正文里直接写 HTML —— 以后要嵌 WASM 渲染器 demo / iframe 时需要
+[markup]
+  [markup.goldmark.renderer]
+    unsafe = true
+  [markup.highlight]
+    noClasses = false
+    style = "monokai"
+    lineNos = false
+
+[params]
+  author = "Froler27"
+  description = "实时渲染 / 图形学 / 跨平台工程的笔记与实验"
+  keywords = ["实时渲染", "图形学", "GPU", "Vulkan", "Shader", "渲染管线"]
+  DateFormat = "2006-01-02"
+  defaultTheme = "auto"
+  ShowReadingTime = true
+  ShowShareButtons = false
+  ShowPostNavLinks = true
+  ShowBreadCrumbs = true
+  ShowCodeCopyButtons = true
+  ShowRssButtonInSectionTermList = true
+  ShowToc = true
+  TocOpen = false
+  comments = false
+
+  [params.assets]
+    disableHLJS = true
+
+  [params.homeInfoParams]
+    Title = "幻域 · 渲染笔记"
+    Content = """
+实时渲染、图形学与跨平台工程的笔记与实验。
+
+读论文、读引擎源码、写渲染器——然后把想清楚的东西说清楚。
+"""
+
+  [[params.socialIcons]]
+    name = "github"
+    url = "https://github.com/Froler27"
+  [[params.socialIcons]]
+    name = "rss"
+    url = "/index.xml"
+
+[menu]
+  [[menu.main]]
+    identifier = "posts"
+    name = "文章"
+    url = "/posts/"
+    weight = 10
+  [[menu.main]]
+    identifier = "tags"
+    name = "标签"
+    url = "/tags/"
+    weight = 20
+  [[menu.main]]
+    identifier = "search"
+    name = "搜索"
+    url = "/search/"
+    weight = 25
+  [[menu.main]]
+    identifier = "about"
+    name = "关于"
+    url = "/about/"
+    weight = 30
