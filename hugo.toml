@@ -41,6 +41,11 @@ pagination.pagerSize = 10
 
   [params.assets]
     disableHLJS = true
+    # 关掉 resource fingerprint。原因：PaperMod 的 CSS 源本身是 CRLF，Hugo 按含 CRLF 的
+    # 产物算 integrity 哈希；而 git(autocrlf) 会剥掉 CR 存成 LF、GitHub Pages 也发 LF 版本
+    # → 浏览器算出的哈希与 integrity 声明不符 → 按 SRI 规范**拒绝加载 CSS/JS**
+    # → 页面退化成无样式裸 HTML（导航变项目符号列表、SVG 图标撑满屏幕）。
+    disableFingerprinting = true
 
   [params.homeInfoParams]
     Title = "幻域 · 渲染笔记"
