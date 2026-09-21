@@ -1,6 +1,9 @@
 baseURL = "https://froler27.github.io/"
 locale = "zh-cn"
 defaultContentLanguage = "zh"
+# 关键：Hugo 默认按 UTC 解析不带时间的 date。
+# 北京时间凌晨写 date: YYYY-MM-DD 会被判成"未来"而跳过渲染（文章 404）。
+timeZone = "Asia/Shanghai"
 title = "幻域 · 渲染笔记"
 theme = "PaperMod"
 publishDir = "docs"
