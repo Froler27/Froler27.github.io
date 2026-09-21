@@ -1,0 +1,18 @@
+{{- /* 覆盖主题同名钩子：按需加载自托管的 KaTeX（数学公式渲染） */ -}}
+{{- /* 只在页面 frontmatter 写了 math: true、或站点参数 math = true 时才加载 */ -}}
+{{- if or (.Param "math") (.Site.Params.math) }}
+{{- /* ⚠ 不要给这里加 integrity 属性：
+       本站 2026-09-22 因为 integrity 哈希与实际内容不匹配（CRLF vs LF），
+       被浏览器按 SRI 规范拒绝加载全部 CSS，页面退化成裸 HTML。
+       KaTeX 是自托管同源资源，不需要 SRI 保护。 */}}
+<link rel="stylesheet" href="{{ "katex/katex.min.css" | relURL }}">
+<script defer src="{{ "katex/katex.min.js" | relURL }}"></script>
+<script defer src="{{ "katex/auto-render.min.js" | relURL }}"
+  onload="renderMathInElement(document.body, {
+    delimiters: [
+      {left: '$$', right: '$$', display: true},
+      {left: '$',  right: '$',  display: false}
+    ],
+    throwOnError: false
+  });"></script>
+{{- end }}

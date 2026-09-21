@@ -18,6 +18,13 @@ pagination.pagerSize = 10
 [markup]
   [markup.goldmark.renderer]
     unsafe = true
+  # 让 LaTeX 公式原样穿过 Markdown 解析。
+  # 不配这个的话，$M^{-\mathsf T}$ 里的 _ ^ \ 会被 Markdown 当成语法处理，公式直接坏掉。
+  [markup.goldmark.extensions.passthrough]
+    enable = true
+    [markup.goldmark.extensions.passthrough.delimiters]
+      block = [['\[', '\]'], ['$$', '$$']]
+      inline = [['\(', '\)'], ['$', '$']]
   [markup.highlight]
     noClasses = false
     style = "monokai"
