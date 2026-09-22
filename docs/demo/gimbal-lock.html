@@ -1,0 +1,446 @@
+<!doctype html>
+<!--
+  万向锁 · 交互演示
+  源文件：幻域库  02-知识点/万向锁演示.html      ← 改这里
+  站点副本：博客仓库 static/demo/gimbal-lock.html ← 由 scripts/publish-blog.py 同步，别手改
+  URL 参数：?a=偏航&b=俯仰&g=滚转&axis=1(只显示轴)
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>万向锁 · 交互演示</title>
+<style>
+:root{
+  --ink:#0f172a; --slate:#64748b; --line:#e2e8f0; --bg:#f8fafc;
+  --yaw:#38bdf8;          /* 偏航轴 蓝 */
+  --pitch:#a78bfa;        /* 俯仰轴 紫 */
+  --roll:#34d399;         /* 滚转轴 绿 */
+  --danger:#ef4444; --danger-bg:#fef2f2;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+     font-family:"Microsoft YaHei","Segoe UI",system-ui,-apple-system,sans-serif;
+     -webkit-font-smoothing:antialiased}
+.wrap{max-width:1220px;margin:0 auto;padding:26px 22px 60px}
+h1{font-size:25px;margin:0 0 6px;letter-spacing:.01em}
+.sub{color:var(--slate);font-size:14px;margin-bottom:22px}
+.layout{display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap}
+.stage{background:#fff;border:1px solid var(--line);border-radius:14px;padding:8px;
+       box-shadow:0 1px 3px rgba(15,23,42,.05)}
+canvas{display:block;border-radius:10px;cursor:grab}
+canvas:active{cursor:grabbing}
+.panel{flex:1;min-width:330px;display:flex;flex-direction:column;gap:14px}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px 18px;
+      box-shadow:0 1px 3px rgba(15,23,42,.05)}
+.card h2{font-size:14px;margin:0 0 12px;color:var(--slate);font-weight:600;letter-spacing:.04em}
+.sl{margin-bottom:14px}
+.sl:last-child{margin-bottom:0}
+.sl .row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px}
+.sl label{font-size:14px;font-weight:600}
+.sl .axis{font-size:12px;color:var(--slate);font-weight:400;margin-left:6px}
+.sl output{font-family:Consolas,ui-monospace,monospace;font-size:15px;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:5px;border-radius:3px;
+                  background:#e2e8f0;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:17px;height:17px;border-radius:50%;
+                  background:var(--ink);cursor:pointer;border:3px solid #fff;
+                  box-shadow:0 1px 4px rgba(15,23,42,.3)}
+.y input[type=range]::-webkit-slider-thumb{background:var(--yaw)}
+.p input[type=range]::-webkit-slider-thumb{background:var(--pitch)}
+.r input[type=range]::-webkit-slider-thumb{background:var(--roll)}
+.status{border-radius:10px;padding:11px 13px;font-size:13.5px;line-height:1.55;
+        background:#f1f5f9;border:1px solid var(--line)}
+.status.locked{background:var(--danger-bg);border-color:#fecaca;color:#991b1b}
+.status b{font-weight:700}
+.mono{font-family:Consolas,ui-monospace,monospace}
+table.read{width:100%;border-collapse:collapse;font-size:13px}
+table.read td{padding:5px 0;border-bottom:1px solid #f1f5f9;vertical-align:top}
+table.read tr:last-child td{border-bottom:none}
+table.read td:first-child{color:var(--slate);white-space:nowrap;padding-right:12px}
+table.read td:last-child{text-align:right;font-family:Consolas,ui-monospace,monospace}
+.btns{display:flex;gap:9px;flex-wrap:wrap}
+button{font-family:inherit;font-size:13px;font-weight:600;padding:9px 14px;border-radius:9px;
+       border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;transition:.15s}
+button:hover{background:#f1f5f9;border-color:#cbd5e1}
+button.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+button.primary:hover{background:#1e293b}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12.5px;color:var(--slate);margin-top:4px}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;
+          vertical-align:-1px}
+.note{font-size:13px;line-height:1.7;color:#334155}
+.note code{font-family:Consolas,ui-monospace,monospace;background:#f1f5f9;padding:1px 5px;
+           border-radius:4px;font-size:12.5px}
+.exp{font-size:13px;line-height:1.6;margin-top:10px;padding:10px 12px;border-radius:9px;
+     background:#f0f9ff;border:1px solid #bae6fd;display:none}
+.exp.on{display:block}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>万向锁 · 交互演示</h1>
+  <div class="sub">拖动滑块，盯住<b>两根轴箭头</b>——不是盯环。俯仰转到 ±90° 时，滚转轴会被搬到与偏航轴重合的位置。（画面可以拖动换视角）</div>
+
+  <div class="layout">
+    <div class="stage"><canvas id="cv" width="700" height="580"></canvas>
+      <div class="legend" style="padding:6px 8px 4px">
+        <span><i style="background:var(--yaw)"></i>偏航轴（世界 Z）</span>
+        <span><i style="background:var(--pitch)"></i>俯仰轴</span>
+        <span><i style="background:var(--roll)"></i>滚转轴</span>
+        <span style="margin-left:auto"><label style="cursor:pointer;user-select:none">
+          <input type="checkbox" id="onlyAxis" style="vertical-align:-2px"> 只显示轴</label></span>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="card">
+        <h2>欧拉角</h2>
+        <div class="sl y"><div class="row"><label>偏航<span class="axis">绕世界 Z</span></label><output id="oa">30°</output></div>
+          <input type="range" id="ia" min="0" max="360" step="0.5" value="30"></div>
+        <div class="sl p"><div class="row"><label>俯仰<span class="axis">绕中间轴</span></label><output id="ob">0°</output></div>
+          <input type="range" id="ib" min="-90" max="90" step="0.1" value="0"></div>
+        <div class="sl r"><div class="row"><label>滚转<span class="axis">绕身体轴</span></label><output id="oc">0°</output></div>
+          <input type="range" id="ic" min="0" max="360" step="0.5" value="0"></div>
+        <div class="btns" style="margin-top:14px">
+          <button class="primary" id="bdemo">演示进入锁定</button>
+          <button id="breset">复位</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>现场判据（实时计算）</h2>
+        <div class="status" id="st"></div>
+        <table class="read" style="margin-top:12px">
+          <tr><td>姿态雅可比矩阵的秩</td><td id="rk">3</td></tr>
+          <tr><td>丢掉的自由度</td><td id="dof">无</td></tr>
+          <tr><td>姿态实际由什么决定</td><td id="det">偏航、俯仰、滚转 各自独立</td></tr>
+        </table>
+      </div>
+
+      <div class="card">
+        <h2>亲手验一下：两个不同输入 → 同一个姿态</h2>
+        <p class="note" id="hint">把俯仰拖到 <b>90°</b>，再点下面的按钮。</p>
+        <div class="btns" style="margin-top:10px">
+          <button id="bexp">试试看</button>
+        </div>
+        <div class="exp" id="exp"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:22px">
+    <h2>为什么会这样（一句话）</h2>
+    <p class="note">
+      欧拉角是<b>三层嵌套</b>的旋转：外层带动中层、中层带动内层。中间层转到 ±90° 时，
+      它把内层的转轴搬到了<b>和外层转轴同一条直线</b>上 —— 于是两个旋钮开始转同一根轴，
+      一个自由度没了。<br>
+      此时 <code>(偏航, 俯仰, 滚转) → 姿态</code> 这个映射不再是一一对应：
+      无穷多组角度给出同一个姿态，姿态雅可比矩阵从满秩（3）掉到秩 2。
+    </p>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ───────────── 3×3 矩阵（判断部分是真算的，不是写死的） ───────────── */
+const mul=(A,B)=>A.map((r,i)=>[0,1,2].map(j=>A[i][0]*B[0][j]+A[i][1]*B[1][j]+A[i][2]*B[2][j]));
+const Rz=a=>{const c=Math.cos(a),s=Math.sin(a);return[[c,-s,0],[s,c,0],[0,0,1]];};
+const Ry=a=>{const c=Math.cos(a),s=Math.sin(a);return[[c,0,s],[0,1,0],[-s,0,c]];};
+const Rx=a=>{const c=Math.cos(a),s=Math.sin(a);return[[1,0,0],[0,c,-s],[0,s,c]];};
+const ap=(M,v)=>[0,1,2].map(i=>M[i][0]*v[0]+M[i][1]*v[1]+M[i][2]*v[2]);
+/* 外旋 XYZ ≡ 内旋 ZYX：偏航 α → 俯仰 β → 滚转 γ */
+const euler=(a,b,g)=>mul(mul(Rz(a),Ry(b)),Rx(g));
+
+function rotvec(M){                       // 旋转矩阵 → 旋转向量（log map）
+  const tr=M[0][0]+M[1][1]+M[2][2];
+  const th=Math.acos(Math.max(-1,Math.min(1,(tr-1)/2)));
+  if(th<1e-9) return [0,0,0];
+  const v=[M[2][1]-M[1][2],M[0][2]-M[2][0],M[1][0]-M[0][1]];
+  const k=th/(2*Math.sin(th));
+  return v.map(x=>x*k);
+}
+function jacobian(a,b,g,h=1e-6){          // 姿态对三个角度的偏导
+  const cols=[];
+  for(const d of [[h,0,0],[0,h,0],[0,0,h]]){
+    const p=rotvec(euler(a+d[0],b+d[1],g+d[2]));
+    const m=rotvec(euler(a-d[0],b-d[1],g-d[2]));
+    cols.push([0,1,2].map(i=>(p[i]-m[i])/(2*h)));
+  }
+  return [0,1,2].map(i=>[0,1,2].map(j=>cols[j][i]));
+}
+function rank(M,tol=1e-4){
+  const A=M.map(r=>r.slice()); let r=0;
+  for(let c=0;c<3;c++){
+    let piv=r; for(let i=r+1;i<3;i++) if(Math.abs(A[i][c])>Math.abs(A[piv][c])) piv=i;
+    if(Math.abs(A[piv][c])<tol) continue;
+    [A[r],A[piv]]=[A[piv],A[r]];
+    for(let i=0;i<3;i++) if(i!==r&&A[i][c]!==0){
+      const f=A[i][c]/A[r][c];
+      for(let j=0;j<3;j++) A[i][j]-=f*A[r][j];
+    }
+    r++;
+  }
+  return r;
+}
+
+/* ───────────── 固定视角投影 ───────────── */
+const cv=document.getElementById("cv"), ctx=cv.getContext("2d");
+const DPR=Math.max(1,window.devicePixelRatio||1);
+const W=700,H=580;
+cv.width=W*DPR; cv.height=H*DPR; cv.style.width=W+"px"; cv.style.height=H+"px";
+ctx.scale(DPR,DPR);
+const CX=W/2, CY=H/2+16, FOCAL=1180, DIST=5.0;
+/* 默认视角：视线取三条转轴构成的"体对角线"方向，三个环张开度同时 = 1/√3 ≈ 0.577
+   （张开度 = |法线·视线|，1 = 正对镜头，0 = 侧对成一条线）。
+   三轴正交 ⇒ 三者张开度的平方和恒为 1，α 一变必然有环被压扁，所以默认角选在均衡点。 */
+let VIEW=mul(Rx(-0.9094),Ry(0.3508));      // 仰角 −52.1°，方位 20.1°；可用鼠标拖动换视角
+function project(p){
+  const q=ap(VIEW,p);
+  const s=FOCAL/(DIST-q[2]);
+  return [CX+q[0]*s, CY-q[1]*s, q[2]];
+}
+const lerp=(a,b,t)=>a+(b-a)*t;
+
+/* ───────────── 几何 ───────────── */
+const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const nrm=a=>{const L=Math.hypot(a[0],a[1],a[2])||1;return a.map(x=>x/L);};
+function frame(axis){                       // 垂直于 axis 的两个正交基
+  const a=nrm(axis);
+  const t=Math.abs(a[0])<0.9?[1,0,0]:[0,1,0];
+  const u=nrm(cross(t,a)), v=nrm(cross(a,u));
+  return [u,v];
+}
+function polygon(center,axis,r,n=110,phase=0){
+  const [u,v]=frame(axis), out=[];
+  for(let i=0;i<=n;i++){
+    const th=2*Math.PI*i/n+phase;
+    out.push([0,1,2].map(k=>center[k]+r*(Math.cos(th)*u[k]+Math.sin(th)*v[k])));
+  }
+  return out;
+}
+function drawRing(pts,color,width,alpha,dash){
+  ctx.save(); ctx.globalAlpha=alpha; ctx.lineJoin="round"; ctx.setLineDash(dash||[]);
+  ctx.beginPath();
+  pts.forEach((p,i)=>{const q=project(p); i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]);});
+  ctx.strokeStyle="rgba(255,255,255,.92)"; ctx.lineWidth=width+3.4; ctx.stroke();  // 白色描边底
+  ctx.strokeStyle=color; ctx.lineWidth=width; ctx.stroke();
+  ctx.restore();
+}
+/* 轴箭头：从原点沿 dir 画带锥头的线；前端带标签 */
+function drawAxis(dir,color,label,alpha,len){
+  const L=len||1.62;
+  const tip=[0,1,2].map(k=>dir[k]*L);
+  const a=project([0,0,0]), b=project(tip);
+  ctx.save(); ctx.globalAlpha=alpha;
+  ctx.strokeStyle=color; ctx.lineWidth=3.2; ctx.lineCap="round";
+  ctx.beginPath(); ctx.moveTo(a[0],a[1]); ctx.lineTo(b[0],b[1]); ctx.stroke();
+  // 锥头
+  const ang=Math.atan2(b[1]-a[1],b[0]-a[0]), hl=14, hw=6.4;
+  ctx.beginPath();
+  ctx.moveTo(b[0],b[1]);
+  ctx.lineTo(b[0]-hl*Math.cos(ang)+hw*Math.sin(ang), b[1]-hl*Math.sin(ang)-hw*Math.cos(ang));
+  ctx.lineTo(b[0]-hl*Math.cos(ang)-hw*Math.sin(ang), b[1]-hl*Math.sin(ang)+hw*Math.cos(ang));
+  ctx.closePath(); ctx.fillStyle=color; ctx.fill();
+  if(label){
+    const dv=[b[0]-a[0],b[1]-a[1]], L=Math.hypot(dv[0],dv[1])||1;
+    const ux=dv[0]/L, uy=dv[1]/L;
+    ctx.font="600 13px 'Microsoft YaHei',sans-serif";
+    ctx.fillStyle=color;
+    ctx.textAlign = ux>0.25 ? "left" : (ux<-0.25 ? "right" : "center");
+    ctx.textBaseline="middle";
+    let lx=b[0]+ux*13, ly=b[1]+uy*13;
+    lx=Math.max(38,Math.min(W-38,lx));           // 不许出画布
+    ly=Math.max(14,Math.min(H-14,ly));
+    ctx.fillText(label, lx, ly);
+  }
+  ctx.restore();
+}
+/* 立方体：12 条边 + 面着色（画家算法），面着色让"滚转"看得见 */
+const CUBE_V=[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]];
+const CUBE_F=[[0,1,2,3],[4,5,6,7],[0,1,5,4],[2,3,7,6],[1,2,6,5],[0,3,7,4]];
+const LIGHT=nrm([0.45,0.75,0.5]);
+function drawCube(M,scale,alpha){
+  const P=CUBE_V.map(v=>project(ap(M,v.map(x=>x*scale))));
+  const faces=CUBE_F.map((f,i)=>{
+    const n=ap(M,[0,0,1].map((_,k)=>k===0?1:(k===1?0:0)));   // 占位，下面重算
+    const a=CUBE_V[f[0]],b=CUBE_V[f[1]],c=CUBE_V[f[2]];
+    const e1=b.map((x,k)=>x-a[k]), e2=c.map((x,k)=>x-b[k]);
+    let nn=nrm(cross(e1,e2));
+    const cc=f.map(k=>P[k]);
+    const depth=f.reduce((s,k)=>s+P[k][2],0)/4;
+    return {f,cc,nn,depth};
+  });
+  faces.sort((p,q)=>p.depth-q.depth);
+  ctx.save(); ctx.globalAlpha=alpha;
+  faces.forEach(o=>{
+    const nw=ap(M,o.nn);                       // 面法线变换到世界
+    const lam=Math.max(0,Math.abs(nw[0]*LIGHT[0]+nw[1]*LIGHT[1]+nw[2]*LIGHT[2]));
+    const t=0.34+0.66*lam;
+    const R=Math.round(lerp(30,125,t)), G=Math.round(lerp(41,211,t)), B=Math.round(lerp(59,248,t));
+    ctx.beginPath();
+    o.cc.forEach((p,i)=>{i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]);});
+    ctx.closePath();
+    ctx.fillStyle=`rgb(${R},${G},${B})`; ctx.fill();
+    ctx.strokeStyle="rgba(15,23,42,.55)"; ctx.lineWidth=1.1; ctx.stroke();
+  });
+  ctx.restore();
+}
+
+/* ───────────── 状态与渲染 ───────────── */
+const D2R=Math.PI/180, R2D=180/Math.PI;
+let st={a:30*D2R,b:0,g:0};
+let lockVis=0;                                  // 锁定高亮强度（平滑过渡）
+
+function render(){
+  const {a,b,g}=st;
+  ctx.clearRect(0,0,W,H);
+  /* 背景淡网格，给点空间感 */
+  ctx.save(); ctx.strokeStyle="#eef2f7"; ctx.lineWidth=1;
+  for(let i=0;i<=10;i++){
+    ctx.beginPath(); ctx.moveTo(0,i*H/10); ctx.lineTo(W,i*H/10); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(i*W/10,0); ctx.lineTo(i*W/10,H); ctx.stroke();
+  }
+  ctx.restore();
+
+  /* 三层框架的轴向（世界系） */
+  const yawAxis  = [0,0,1];
+  const pitchAxis= ap(Rz(a),[0,1,0]);
+  const rollAxis = ap(mul(Rz(a),Ry(b)),[1,0,0]);
+  const lock = Math.abs(Math.abs(b)-Math.PI/2) < 0.6*D2R ? 1 : 0;
+  lockVis += (lock-lockVis)*0.25;
+
+  /* 物体先画（它在最里层）；环和轴压在上面 —— 示意图优先保证"三者都看得见" */
+  drawCube(euler(a,b,g),0.24,1);
+
+  /* 三个环（外→内半径递减），环本身是"框架"；勾了「只显示轴」就隐藏，只看轴的关系 */
+  if(!document.getElementById("onlyAxis").checked){
+    drawRing(polygon([0,0,0],yawAxis,1.00),`rgba(56,189,248,1)`,2.4,0.95);
+    drawRing(polygon([0,0,0],pitchAxis,0.80),`rgba(167,139,250,1)`,2.4,0.95);
+    /* 内环锁定态变红：它和外环共面了 */
+    const innerCol = lockVis>0.5 ? `rgba(220,38,38,1)` : `rgba(52,211,153,1)`;
+    drawRing(polygon([0,0,0],rollAxis,0.60),innerCol,3.0,0.95);
+  }
+
+  /* 轴箭头：锁定时滚转轴会贴到偏航轴上（±Z） */
+  drawAxis(yawAxis,  "#38bdf8","偏航轴", 0.95, 1.55);
+  drawAxis(pitchAxis,"#a78bfa","俯仰轴", 0.85, 1.34);
+  drawAxis(rollAxis, lockVis>0.5?"#dc2626":"#34d399","滚转轴", 1.0, 1.12);
+
+  /* 原点 */
+  const o=project([0,0,0]);
+  ctx.beginPath(); ctx.arc(o[0],o[1],3,0,7); ctx.fillStyle="#0f172a"; ctx.fill();
+
+  /* 锁定标注（放在底部，别和轴标签抢位置） */
+  if(lockVis>0.02){
+    ctx.save(); ctx.globalAlpha=lockVis;
+    const y0=H-52;
+    ctx.fillStyle="rgba(254,242,242,.94)";
+    ctx.strokeStyle="#fecaca"; ctx.lineWidth=1;
+    const bw=470, bx=CX-bw/2;
+    ctx.beginPath(); ctx.roundRect(bx,y0-19,bw,60,10); ctx.fill(); ctx.stroke();
+    ctx.textAlign="center"; ctx.textBaseline="middle";
+    ctx.font="700 15px 'Microsoft YaHei',sans-serif"; ctx.fillStyle="#dc2626";
+    ctx.fillText("滚转轴与偏航轴重合 → 万向锁", CX, y0);
+    ctx.font="400 12.5px 'Microsoft YaHei',sans-serif"; ctx.fillStyle="#b91c1c";
+    ctx.fillText("红色滚转轴与青色偏航轴落在同一条直线上", CX, y0+18);
+    if(!document.getElementById("onlyAxis").checked)
+      ctx.fillText("红环与外环共面：两个旋钮转的是同一根世界 Z 轴", CX, y0+35);
+    ctx.restore();
+  }
+
+  /* ── 读数（真算） ── */
+  const J=jacobian(a,b,g), rk=rank(J);
+  document.getElementById("rk").textContent = rk;
+  document.getElementById("dof").textContent = rk===3 ? "无" : "绕世界 Z 一个方向";
+  document.getElementById("det").textContent =
+      rk===3 ? "偏航、俯仰、滚转 各自独立"
+      : (b>0 ? "只取决于 (偏航 − 滚转)" : "只取决于 (偏航 + 滚转)");
+
+  const stEl=document.getElementById("st");
+  if(rk===3){
+    stEl.className="status";
+    stEl.innerHTML=`三根转轴线性无关，<b>秩 3</b>：三个角度各管一个方向，姿态与角度一一对应。`;
+  }else{
+    stEl.className="status locked";
+    const dn = b>0 ? "−" : "+";
+    stEl.innerHTML=`⚠ <b>万向锁</b>：俯仰 = ${(b*R2D).toFixed(1)}°，滚转轴被搬到与偏航轴同一直线上，
+      秩掉到 <b>2</b>。此时姿态只由 <b>(偏航 ${dn} 滚转)</b> 决定 ——
+      单独转偏航和单独转滚转，效果大小相同、方向相反。`;
+  }
+  requestAnimationFrame(render);
+}
+
+/* ───────────── 交互 ───────────── */
+const ia=document.getElementById("ia"), ib=document.getElementById("ib"), ic=document.getElementById("ic");
+const oa=document.getElementById("oa"), ob=document.getElementById("ob"), oc=document.getElementById("oc");
+function sync(){
+  st.a=+ia.value*D2R; st.b=+ib.value*D2R; st.g=+ic.value*D2R;
+  oa.textContent=(+ia.value).toFixed(1)+"°";
+  ob.textContent=(+ib.value).toFixed(1)+"°";
+  oc.textContent=(+ic.value).toFixed(1)+"°";
+}
+[ia,ib,ic].forEach(el=>el.addEventListener("input",()=>{stopAnim();sync();}));
+/* 支持 ?a=30&b=90&g=0&axis=1 直接落到某个角度/模式（也方便截图核验） */
+const Q=new URLSearchParams(location.search);
+if(Q.has("a")) ia.value=+Q.get("a");
+if(Q.has("b")) ib.value=+Q.get("b");
+if(Q.has("g")) ic.value=+Q.get("g");
+if(Q.get("axis")==="1") document.getElementById("onlyAxis").checked=true;
+sync();
+
+let raf=null;
+function stopAnim(){ if(raf){cancelAnimationFrame(raf);raf=null;} }
+
+document.getElementById("breset").onclick=()=>{stopAnim();ia.value=30;ib.value=0;ic.value=0;sync();};
+document.getElementById("bdemo").onclick=()=>{
+  stopAnim();
+  const t0=performance.now(), DUR=1700;
+  const b0=+ib.value;
+  (function step(){
+    const t=Math.min(1,(performance.now()-t0)/DUR);
+    const e=1-Math.pow(1-t,3);
+    ib.value=(b0+(90-b0)*e).toFixed(1); sync();
+    if(t<1) raf=requestAnimationFrame(step); else raf=null;
+  })();
+};
+
+document.getElementById("bexp").onclick=()=>{
+  stopAnim();
+  const a0=+ia.value, g0=+ic.value;
+  const b0=+ib.value;
+  const dir = (Math.abs(b0-90)<0.5) ? +1 : (Math.abs(b0+90)<0.5 ? -1 : 0);
+  const box=document.getElementById("exp");
+  if(dir===0){
+    box.className="exp on";
+    box.innerHTML=`先把<b>俯仰</b>拖到 90°（或点「演示进入锁定」），再回来点这个按钮。`;
+    return;
+  }
+  const M0=euler(a0*D2R,dir*Math.PI/2,g0*D2R);
+  const a1=a0+30, g1=g0+30*dir;
+  const M1=euler(a1*D2R,dir*Math.PI/2,g1*D2R);
+  let mx=0; for(let i=0;i<3;i++)for(let j=0;j<3;j++) mx=Math.max(mx,Math.abs(M0[i][j]-M1[i][j]));
+  const f=M=>M.map(r=>r.map(x=>(Math.abs(x)<5e-4?0:x).toFixed(3)).join("  ")).join("<br>");
+  box.className="exp on";
+  box.innerHTML=`
+    <b>① 偏航 ${a0.toFixed(0)}° · 俯仰 ${(dir*90)}° · 滚转 ${g0.toFixed(0)}°</b>
+    <div class="mono" style="font-size:12px;margin:4px 0 10px;color:#334155">${f(M0)}</div>
+    <b>② 偏航 ${a1.toFixed(0)}° · 俯仰 ${(dir*90)}° · 滚转 ${g1.toFixed(0)}°</b>
+    <div class="mono" style="font-size:12px;margin:4px 0 10px;color:#334155">${f(M1)}</div>
+    <b>两组角度差 30°，姿态矩阵最大差 = ${mx.toExponential(1)}</b><br>
+    <span style="color:#0369a1">三个数字全变了，物体姿态一模一样 —— 这就是"自由度丢了"。</span>`;
+};
+
+/* 鼠标拖动换视角 */
+let drag=null;
+cv.addEventListener("mousedown",e=>{drag={x:e.clientX,y:e.clientY};});
+window.addEventListener("mouseup",()=>drag=null);
+window.addEventListener("mousemove",e=>{
+  if(!drag) return;
+  const dx=(e.clientX-drag.x)*0.006, dy=(e.clientY-drag.y)*0.006;
+  drag={x:e.clientX,y:e.clientY};
+  VIEW=mul(mul(Rx(-dy),Ry(dx)),VIEW);
+});
+
+render();
+</script>
+</body>
+</html>
