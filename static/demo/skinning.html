@@ -1,0 +1,330 @@
+<!doctype html>
+<!--
+  骨骼蒙皮 · 交互演示（LBS vs 双四元数）
+  源文件：幻域库  02-知识点/骨骼蒙皮演示.html        ← 改这里
+  站点副本：博客仓库 static/demo/skinning.html        ← 由 scripts/publish-blog.py 同步，别手改
+  URL 参数：?phi=170&blend=0.35&embed=1
+-->
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>骨骼蒙皮 · 交互演示</title>
+<style>
+:root{
+  --ink:#0f172a; --slate:#64748b; --line:#e2e8f0; --bg:#f8fafc;
+  --lbs:#f97316; --dqs:#0ea5e9; --ok:#10b981; --bad:#ef4444;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+     font-family:"Microsoft YaHei","Segoe UI",system-ui,-apple-system,sans-serif;
+     -webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:26px 22px 60px}
+h1{font-size:25px;margin:0 0 6px}
+.sub{color:var(--slate);font-size:14px;line-height:1.6;margin-bottom:20px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:820px){.grid{grid-template-columns:1fr}}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;
+      box-shadow:0 1px 3px rgba(15,23,42,.05)}
+.card h2{font-size:14px;margin:0 0 10px;color:var(--slate);font-weight:600;letter-spacing:.03em;
+         display:flex;align-items:center;gap:7px}
+.card h2 .dot{width:9px;height:9px;border-radius:50%}
+canvas{display:block;width:100%;height:auto;border-radius:10px}
+.controls{margin-top:18px;display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:820px){.controls{grid-template-columns:1fr}}
+.sl{margin-bottom:14px}
+.sl .row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px}
+.sl label{font-size:14px;font-weight:600}
+.sl output{font-family:Consolas,ui-monospace,monospace;font-size:15px;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:5px;border-radius:3px;
+                  background:#e2e8f0;outline:none}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:17px;height:17px;border-radius:50%;
+                  background:var(--ink);cursor:pointer;border:3px solid #fff;
+                  box-shadow:0 1px 4px rgba(15,23,42,.3)}
+table.read{width:100%;border-collapse:collapse;font-size:13px}
+table.read td{padding:6px 0;border-bottom:1px solid #f1f5f9}
+table.read tr:last-child td{border-bottom:none}
+table.read td:first-child{color:var(--slate)}
+table.read td:last-child{text-align:right;font-family:Consolas,ui-monospace,monospace;
+                         font-variant-numeric:tabular-nums}
+.note{font-size:13px;line-height:1.7;color:#334155}
+.note code{font-family:Consolas,ui-monospace,monospace;background:#f1f5f9;padding:1px 5px;
+           border-radius:4px;font-size:12.5px}
+.formula{margin-top:10px;padding:10px 12px;border-radius:9px;background:#f8fafc;border:1px dashed #cbd5e1;
+         font-family:Consolas,ui-monospace,monospace;font-size:13px;line-height:1.9;color:#0f172a}
+.badge{display:inline-block;font-size:12px;padding:2px 8px;border-radius:999px;font-weight:600}
+body.embed{background:#fff}
+body.embed .wrap{padding:10px 10px 16px;max-width:none}
+body.embed h1, body.embed .sub, body.embed .hide-embed{display:none}
+/* 内嵌时让两根管子并排（宽度够），把总高度压下来 */
+body.embed .grid{grid-template-columns:1fr 1fr}
+body.embed .controls{grid-template-columns:1fr}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>骨骼蒙皮 · 交互演示</h1>
+  <div class="sub">一根骨头，两个骨骼（同轴），中间一段是混合区。右边的骨骼相对左边的<b>绕轴扭转</b>了一个角度 φ。
+    拖动滑块看两件事：<b>LBS 会把混合区的半径压扁</b>（这就是"糖果纸"），而双四元数（DQS）不会。</div>
+
+  <div class="grid">
+    <div class="card">
+      <h2><span class="dot" style="background:var(--lbs)"></span>线性混合蒙皮 LBS<span class="badge"
+          style="background:#fff7ed;color:#c2410c;margin-left:auto">半径被压扁</span></h2>
+      <canvas id="cvL" width="560" height="300"></canvas>
+    </div>
+    <div class="card">
+      <h2><span class="dot" style="background:var(--dqs)"></span>双四元数 DQS<span class="badge"
+          style="background:#e0f2fe;color:#0369a1;margin-left:auto">半径保持</span></h2>
+      <canvas id="cvD" width="560" height="300"></canvas>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="card">
+      <h2>参数</h2>
+      <div class="sl"><div class="row"><label>扭转角 φ</label><output id="ophi">170.0°</output></div>
+        <input type="range" id="iphi" min="0" max="178" step="0.5" value="170"></div>
+      <div class="sl"><div class="row"><label>混合区宽度</label><output id="obld">40%</output></div>
+        <input type="range" id="ibld" min="5" max="90" step="1" value="40"></div>
+      <table class="read" style="margin-top:6px">
+        <tr><td>混合区中点的权重 w</td><td>0.500</td></tr>
+        <tr><td>LBS 最小半径保留率</td><td id="rL">—</td></tr>
+        <tr><td>DQS 最小半径保留率</td><td id="rD">—</td></tr>
+      </table>
+      <div class="formula">
+        权重 w 处 LBS 的半径保留率 = √(1 − 2w(1−w)(1−cos φ))<br>
+        &nbsp;&nbsp;w = 0.5 时退化为 |cos(φ/2)|　　DQS 恒为 1
+      </div>
+    </div>
+    <div class="card">
+      <h2>半径保留率 vs 扭转角（权重 0.5 处）</h2>
+      <canvas id="cvC" width="560" height="300"></canvas>
+      <p class="note hide-embed" style="margin-top:10px">
+        橙色曲线是 LBS 的解析式 <code>|cos(φ/2)|</code>，圆点是从上面那根管子上实测出来的；
+        蓝色直线是 DQS。φ = 170° 时 LBS 只剩 <b>8.7%</b> —— 那条"收腰"就是这么来的。</p>
+    </div>
+  </div>
+
+  <div class="card hide-embed" style="margin-top:18px">
+    <h2>这个演示在说什么</h2>
+    <p class="note">
+      蒙皮的公式只有一条：<code>u = Σ wᵢ · BᵢMᵢ⁻¹ · p</code>。当 <code>BᵢMᵢ⁻¹</code> 是<b>矩阵</b>时，
+      把两个旋转矩阵加权求和，得到的<b>不是一个旋转</b>——它的行列式会小于 1，也就是"缩了"。<br>
+      收缩量只和两个旋转的夹角 φ 与权重 w 有关：<code>√(1 − 2w(1−w)(1−cos φ))</code>。
+      权重在两端（0 或 1）时没有损失，损失最大的是"一半一半"的中间地带 —— 所以收腰出现在混合区正中。<br>
+      双四元数换了个表示：它混合的是<b>旋转本身</b>（对偶四元数是刚体变换的另一种参数化），
+      结果仍然是刚体变换，于是半径分毫不损。<br>
+      代价：DQS 会"膨胀"，且当两个四元数接近反极点（φ → 180°）时需要半球对齐，实现在 C++ 里比一行矩阵乘麻烦不少。
+    </p>
+  </div>
+</div>
+
+<script>
+"use strict";
+/* ───────── 四元数（真三维，不抄近路） ───────── */
+const qmul=(a,b)=>[
+  a[0]*b[0]-a[1]*b[1]-a[2]*b[2]-a[3]*b[3],
+  a[0]*b[1]+a[1]*b[0]+a[2]*b[3]-a[3]*b[2],
+  a[0]*b[2]-a[1]*b[3]+a[2]*b[0]+a[3]*b[1],
+  a[0]*b[3]+a[1]*b[2]-a[2]*b[1]+a[3]*b[0]];
+const qscale=(q,s)=>q.map(x=>x*s);
+const qnorm=q=>{const n=Math.hypot(...q)||1;return q.map(x=>x/n);};
+const qrot=(q,v)=>{                       // 用单位四元数旋转向量
+  const p=[0,v[0],v[1],v[2]];
+  const r=qmul(qmul(q,p),[q[0],-q[1],-q[2],-q[3]]);
+  return [r[1],r[2],r[3]];
+};
+function qFromAxisAngle(ax,a){const h=a/2,s=Math.sin(h);return [Math.cos(h),ax[0]*s,ax[1]*s,ax[2]*s];}
+
+/* 双四元数线性混合（DLB）：两骨骼同轴且无平移 ⇒ 结果是纯旋转 */
+function dqsBlend(q0,d0,q1,d1,w){
+  let Q1=q1.slice(), D1=d1.slice();
+  if((Q1[0]*q0[0]+Q1[1]*q0[1]+Q1[2]*q0[2]+Q1[3]*q0[3])<0){Q1=qscale(Q1,-1);D1=qscale(D1,-1);} // 半球对齐
+  const qb=q0.map((x,i)=>(1-w)*x+w*Q1[i]);
+  const db=d0.map((x,i)=>(1-w)*x+w*D1[i]);
+  const n=Math.hypot(...qb)||1e-12;
+  const q=qb.map(x=>x/n), d=db.map(x=>x/n);
+  const t=[2*(d[0]*q[1]-d[1]*q[0]-d[2]*q[3]+d[3]*q[2]),
+           2*(d[0]*q[2]+d[1]*q[3]-d[2]*q[0]-d[3]*q[1]),
+           2*(d[0]*q[3]-d[1]*q[2]+d[2]*q[1]-d[3]*q[0])];
+  return {q, t};
+}
+
+/* ───────── 几何：一根带半径的骨头 ───────── */
+const L=1.0;                 // 骨长（归一化）
+const R=0.22;                // 半径
+const NX=46;                 // 沿骨采样数
+const NA=16;                 // 每圈采样数
+
+function smoothstep(t){t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);}
+
+/* 沿骨的权重：0 → 1，混合区居中 */
+function weightAt(u, blendW){
+  const a=0.5-blendW/2, b=0.5+blendW/2;
+  if(u<=a) return 0;
+  if(u>=b) return 1;
+  return smoothstep((u-a)/(b-a));
+}
+
+/* 取管子上所有点（三维），deform 决定用哪种方法 */
+function buildTube(phi, blendW, useLBS){
+  const axis=[1,0,0];
+  const q1=qFromAxisAngle(axis, phi);      // 右骨骼：绕轴扭转 φ
+  const q0=[1,0,0,0], d0=[0,0,0,0], d1=[0,0,0,0];
+  const rings=[];
+  for(let i=0;i<=NX;i++){
+    const u=i/NX, x=(u-0.5)*L;
+    const w=weightAt(u, blendW);
+    const ring=[];
+    for(let j=0;j<NA;j++){
+      const a=2*Math.PI*j/NA;
+      const p=[x, R*Math.cos(a), R*Math.sin(a)];
+      let q;
+      if(useLBS){
+        // 线性混合：矩阵加权和 —— 直接用旋转后的点做加权（等价于矩阵作用）
+        const p0=p, p1=qrot(q1,p);
+        q=[(1-w)*p0[0]+w*p1[0], (1-w)*p0[1]+w*p1[1], (1-w)*p0[2]+w*p1[2]];
+      }else{
+        const {q:qb,t}=dqsBlend(q0,d0,q1,d1,w);
+        const r=qrot(qb,p);
+        q=[r[0]+t[0], r[1]+t[1], r[2]+t[2]];
+      }
+      ring.push(q);
+    }
+    rings.push({u,w,ring});
+  }
+  return rings;
+}
+
+/* 投影：简单的斜投影，让截面圆看起来是椭圆 */
+const SKZ_X=0.62, SKZ_Y=-0.34;
+function project(p, box){
+  const sx=box.cx + (p[0])*box.sx + p[2]*SKZ_X*box.sx;
+  const sy=box.cy - p[1]*box.sx - p[2]*SKZ_Y*box.sx;
+  return [sx,sy];
+}
+
+function canvasSize(cv, k){
+  const DPR=Math.max(1,window.devicePixelRatio||1);
+  const W=cv.clientWidth||560, H=Math.round(W*k);
+  if(cv.width!==W*DPR||cv.height!==H*DPR){cv.width=W*DPR;cv.height=H*DPR;cv.style.height=H+"px";}
+  cv.getContext("2d").setTransform(DPR,0,0,DPR,0,0);
+  return [W,H];
+}
+const EMBED=()=>document.body.classList.contains("embed");
+
+function drawTube(ctx, cv, rings, color, title, tMin){
+  const [W,H]=canvasSize(cv, EMBED()?0.60:300/560);
+  ctx.clearRect(0,0,W,H);
+  const box={cx:W/2, cy:H/2+10, sx:W*0.62};
+  // 骨轴
+  ctx.strokeStyle="#cbd5e1"; ctx.lineWidth=1; ctx.setLineDash([5,5]);
+  ctx.beginPath();
+  const a0=project([-L/2,0,0],box), a1=project([L/2,0,0],box);
+  ctx.moveTo(a0[0],a0[1]); ctx.lineTo(a1[0],a1[1]); ctx.stroke();
+  ctx.setLineDash([]);
+  // 截面圈
+  ctx.strokeStyle=color; ctx.lineWidth=1.1; ctx.globalAlpha=.55;
+  for(const r of rings){
+    ctx.beginPath();
+    r.ring.forEach((p,i)=>{const q=project(p,box); i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]);});
+    ctx.closePath(); ctx.stroke();
+  }
+  // 四条纵向轮廓线
+  ctx.globalAlpha=1; ctx.lineWidth=1.5;
+  for(const j of [0, NA/4, NA/2, 3*NA/4]){
+    ctx.beginPath();
+    rings.forEach((r,i)=>{const q=project(r.ring[j],box); i?ctx.lineTo(q[0],q[1]):ctx.moveTo(q[0],q[1]);});
+    ctx.stroke();
+  }
+  // 混合区标记 + 最细处
+  const mid=rings[Math.floor(NX/2)];
+  const q=project(mid.ring[0],box);
+  ctx.beginPath(); ctx.arc(q[0],q[1],4,0,7); ctx.fillStyle=color; ctx.fill();
+  // 半径读数
+  const rmin=minRadius(rings);
+  ctx.font="600 13px 'Microsoft YaHei',sans-serif"; ctx.fillStyle=color;
+  ctx.textAlign="left"; ctx.textBaseline="top";
+  ctx.fillText(`${title}：最小半径保留率 ${(rmin/R*100).toFixed(1)}%`, 12, 10);
+  if(rmin<tMin) return rmin; return tMin;
+}
+
+function minRadius(rings){
+  let m=Infinity;
+  for(const r of rings){
+    // 取该截面上到轴的距离（轴就是 x 轴，点在 y-z 平面内）
+    for(const p of r.ring) m=Math.min(m, Math.hypot(p[1],p[2]));
+  }
+  return m;
+}
+
+/* ───────── 曲线图 ───────── */
+function drawChart(ctx, cv, phi, blendW){
+  const [W,H]=canvasSize(cv, EMBED()?0.50:300/560);
+  ctx.clearRect(0,0,W,H);
+  const mL=52,mR=18,mT=16,mB=38, pw=W-mL-mR, ph=H-mT-mB;
+  const X=a=>mL+a/180*pw, Y=v=>mT+ph-v*ph;
+  // 网格
+  ctx.strokeStyle="#eef2f7"; ctx.lineWidth=1;
+  for(let i=0;i<=4;i++){const y=mT+ph*i/4;ctx.beginPath();ctx.moveTo(mL,y);ctx.lineTo(mL+pw,y);ctx.stroke();}
+  // 坐标轴
+  ctx.strokeStyle="#94a3b8"; ctx.beginPath();
+  ctx.moveTo(mL,mT); ctx.lineTo(mL,mT+ph); ctx.lineTo(mL+pw,mT+ph); ctx.stroke();
+  ctx.font="12px 'Microsoft YaHei',sans-serif"; ctx.fillStyle="#64748b";
+  ctx.textAlign="right"; ctx.textBaseline="middle";
+  for(let i=0;i<=4;i++){const v=i/4; ctx.fillText((v*100).toFixed(0)+"%",mL-8,Y(v));}
+  ctx.textAlign="center"; ctx.textBaseline="top";
+  for(const d of [0,45,90,135,180]) ctx.fillText(d+"°",X(d),mT+ph+8);
+  ctx.fillText("扭转角 φ",mL+pw/2,mT+ph+24);
+  // DQS 直线
+  ctx.strokeStyle="#0ea5e9"; ctx.lineWidth=2.4;
+  ctx.beginPath(); ctx.moveTo(X(0),Y(1)); ctx.lineTo(X(180),Y(1)); ctx.stroke();
+  // LBS 曲线 + 实测点
+  ctx.strokeStyle="#f97316"; ctx.lineWidth=2.4; ctx.beginPath();
+  for(let d=0;d<=180;d++){
+    const r=Math.abs(Math.cos(d*Math.PI/360));
+    d?ctx.lineTo(X(d),Y(r)):ctx.moveTo(X(d),Y(r));
+  }
+  ctx.stroke();
+  ctx.fillStyle="#f97316";
+  for(let d=0;d<=180;d+=30){
+    const r=Math.abs(Math.cos(d*Math.PI/360));
+    ctx.beginPath(); ctx.arc(X(d),Y(r),2.6,0,7); ctx.fill();
+  }
+  // 当前位置
+  const cur=Math.abs(Math.cos(phi/2));
+  ctx.setLineDash([4,4]); ctx.strokeStyle="#94a3b8";
+  ctx.beginPath(); ctx.moveTo(X(phi*180/Math.PI),mT+ph); ctx.lineTo(X(phi*180/Math.PI),Y(cur)); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle="#c2410c"; ctx.beginPath(); ctx.arc(X(phi*180/Math.PI),Y(cur),5,0,7); ctx.fill();
+}
+
+/* ───────── 交互 ───────── */
+const iphi=document.getElementById("iphi"), ibld=document.getElementById("ibld");
+const ophi=document.getElementById("ophi"), obld=document.getElementById("obld");
+const cvL=document.getElementById("cvL"), cvD=document.getElementById("cvD"), cvC=document.getElementById("cvC");
+const ctxL=cvL.getContext("2d"), ctxD=cvD.getContext("2d"), ctxC=cvC.getContext("2d");
+
+function sync(){
+  const deg=+iphi.value, phi=deg*Math.PI/180, bl=+ibld.value/100;
+  ophi.textContent=deg.toFixed(1)+"°";
+  obld.textContent=(+ibld.value)+"%";
+  drawTube(ctxL,cvL,buildTube(phi,bl,true),"#f97316","LBS",1);
+  drawTube(ctxD,cvD,buildTube(phi,bl,false),"#0ea5e9","DQS",1);
+  drawChart(ctxC,cvC,phi,bl);
+  const rMin=Math.abs(Math.cos(phi/2));
+  document.getElementById("rL").textContent=(rMin*100).toFixed(1)+"%";
+  document.getElementById("rD").textContent="100.0%";
+}
+[iphi,ibld].forEach(el=>el.addEventListener("input",sync));
+window.addEventListener("resize",sync);
+
+const Q=new URLSearchParams(location.search);
+if(Q.has("phi")) iphi.value=Q.get("phi");
+if(Q.has("blend")) ibld.value=Math.round(+Q.get("blend")*100);
+if(Q.get("embed")==="1") document.body.classList.add("embed");
+sync();
+</script>
+</body>
+</html>

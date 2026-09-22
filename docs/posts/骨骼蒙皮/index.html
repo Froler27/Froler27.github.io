@@ -1,0 +1,1000 @@
+<!DOCTYPE html>
+<html lang="zh" dir="auto" data-theme="auto">
+
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+<title>骨骼蒙皮：三个引擎都不在顶点着色器里做 | 幻域 · 渲染笔记</title>
+<meta name="keywords" content="图形学, 渲染, 动画, 引擎源码">
+<meta name="description" content="骨骼蒙皮的公式只有一条，但“在哪算”有三个层次——UE、Unity、Godot 的主流路径都不在场景顶点着色器里。逐字核对三家的蒙皮代码后，说清整条流程、关键实现，以及五个只有翻源码才知道的设计决定。">
+<meta name="author" content="Froler27">
+<link rel="canonical" href="https://froler27.github.io/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.css" rel="preload stylesheet" as="style">
+<link rel="icon" href="https://froler27.github.io/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="https://froler27.github.io/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="https://froler27.github.io/favicon-32x32.png">
+<link rel="apple-touch-icon" href="https://froler27.github.io/apple-touch-icon.png">
+<link rel="mask-icon" href="https://froler27.github.io/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="zh" href="https://froler27.github.io/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+<link rel="stylesheet" href="/katex/katex.min.css">
+<script defer src="/katex/katex.min.js"></script>
+<script defer src="/katex/auto-render.min.js"
+  onload="renderMathInElement(document.body, {
+    delimiters: [
+      {left: '$$', right: '$$', display: true},
+      {left: '$',  right: '$',  display: false}
+    ],
+    throwOnError: false
+  });"></script>
+<meta property="og:url" content="https://froler27.github.io/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/">
+  <meta property="og:site_name" content="幻域 · 渲染笔记">
+  <meta property="og:title" content="骨骼蒙皮：三个引擎都不在顶点着色器里做">
+  <meta property="og:description" content="骨骼蒙皮的公式只有一条，但“在哪算”有三个层次——UE、Unity、Godot 的主流路径都不在场景顶点着色器里。逐字核对三家的蒙皮代码后，说清整条流程、关键实现，以及五个只有翻源码才知道的设计决定。">
+  <meta property="og:locale" content="zh_cn">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2026-09-22T00:00:00+08:00">
+    <meta property="article:modified_time" content="2026-09-22T00:00:00+08:00">
+    <meta property="article:tag" content="图形学">
+    <meta property="article:tag" content="渲染">
+    <meta property="article:tag" content="动画">
+    <meta property="article:tag" content="引擎源码">
+    <meta property="og:image" content="https://froler27.github.io/images/brand/og-1200x630.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://froler27.github.io/images/brand/og-1200x630.png">
+  <meta name="twitter:title" content="骨骼蒙皮：三个引擎都不在顶点着色器里做">
+  <meta name="twitter:description" content="骨骼蒙皮的公式只有一条，但“在哪算”有三个层次——UE、Unity、Godot 的主流路径都不在场景顶点着色器里。逐字核对三家的蒙皮代码后，说清整条流程、关键实现，以及五个只有翻源码才知道的设计决定。">
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position":  1 ,
+      "name": "文章",
+      "item": "https://froler27.github.io/posts/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  2 ,
+      "name": "骨骼蒙皮：三个引擎都不在顶点着色器里做",
+      "item": "https://froler27.github.io/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "骨骼蒙皮：三个引擎都不在顶点着色器里做",
+  "name": "骨骼蒙皮：三个引擎都不在顶点着色器里做",
+  "description": "骨骼蒙皮的公式只有一条，但“在哪算”有三个层次——UE、Unity、Godot 的主流路径都不在场景顶点着色器里。逐字核对三家的蒙皮代码后，说清整条流程、关键实现，以及五个只有翻源码才知道的设计决定。",
+  "keywords": [
+    "图形学", "渲染", "动画", "引擎源码"
+  ],
+  "articleBody": "\r先玩一下：一根骨头、两个骨骼、中间一段混合区。把扭转角拉到 170°，看左边 LBS 的管子怎么被\"掐细\"，右边 DQS 却纹丝不动。在新窗口打开完整演示 ↗\n结论 ① 蒙皮只有一条公式，但\"在哪算\"有三个层次。\n$$u(t) = \\sum_{i} w_i \\, B_i(t) M_i^{-1} \\, p$$每帧真正变化的是 $B_i(t)$。这三个层次是：场景顶点着色器内联算、独立 compute 算完写回顶点缓冲、 CPU 算。而三家引擎的默认路径都是第二个——场景顶点着色器只读结果。\n② 蒙皮里法线不做逆转置——三家一致。\n尽管 RTR4 §4.4 明说\"骨骼被拉伸压扁时可能需要 $M^{-\\mathsf T}$\"， 但实测：UE 的三个蒙皮着色器里 InverseTranspose 出现 0 次， Unity 的顶点蒙皮宏和 compute 也都是直接用混合后的矩阵变换法线再归一化。 知道规则，但在蒙皮里选择不执行。\n③ 三家都不在运行时把权重重新归一化（只有一个例外，见第五节第 3 条）。\n它们只做定点→浮点解码（uint8/255、uint16/65535）。这隐含一个契约：导入时就归一化好了。\n一些前置说明 本文引用的引擎代码都是逐字核对的，不是转述。三份源码的位置：\nUE 5.8 发布版源码（Engine/Shaders/Private/…）\rGodot 官方仓库（servers/rendering/…）\rUnity 本机安装的 2022.3.62 LTS 分支（团结引擎 2022.3.62t15）\r—— 内置着色器在 Editor/Data/CGIncludes/builtin_shaders.zip 里\r为什么强调版本：Unity 6 的 MeshDeformation 三档枚举（CPU / GPU / GPUBatched） 在 2022.3 里根本不存在——2022.3 只有一个 PlayerSettings.gpuSkinning 布尔开关。 拿 Unity 6 的文档去讲 2022.3 的实现，会讲错。\n一、蒙皮在算什么 想象一条胳膊。用刚体变换把上臂和前臂当成两个独立物体来动，肘部就会露馅——两个物体在关节处是重叠的， 不是连起来的。蒙皮解决的就是这件事：让\"皮肤\"在关节处连续地过渡。\n数学形式是 RTR4 的 Eq 4.59（p.84）：\n$$u(t) = \\sum_{i=0}^{n-1} w_i \\, B_i(t) M_i^{-1} p \\qquad \\sum w_i = 1,\\ w_i \\ge 0$$三个符号的含义值得逐个说清，因为搞混顺序是最常见的错误来源：\n符号 含义 $p$ 顶点的绑定姿势坐标（建模时那个静态模型里的位置） $M_i$ 把绑定姿势下的顶点送进骨骼 $i$ 的坐标系的变换 $B_i(t)$ 骨骼 $i$ 当前的世界变换（随时间变） $w_i$ 骨骼 $i$ 对这个顶点的影响权重 为什么要 $M_i^{-1}$，而且为什么在后面？ 因为它负责\"把顶点搬进骨骼自己的坐标系\"。 骨骼的动画变换 $B_i(t)$ 是在骨骼自己的空间里描述的（比如\"前臂绕肘部转 90°\"）， 所以必须先把顶点送进那个空间，让变换作用完，再出来。连贯起来就是：\n顶点（模型空间） → M⁻¹ → 骨骼空间 → B 作用 → 模型空间\r每帧真正要上传的矩阵是 $B_i(t)M_i^{-1}$，业界叫蒙皮矩阵。$M_i^{-1}$ 通常在导入时就算好、 和模型一起存着，运行时只做一次矩阵乘。Godot 的代码里能直接看到这个式子 （scene/3d/skeleton_3d.cpp:405）：\nrs-\u003eskeleton_bone_set_transform(skeleton, i, bonesptr[bone_index].global_pose * skin-\u003eget_bind_pose(i)); global_pose 就是 $B_i(t)$，skin-\u003eget_bind_pose(i) 存的是逆绑定姿态（存\"逆\"这个细节第五节还会说）✓\n权重那两个约束为什么重要？ 和为 1、非负，意味着结果 $u$ 落在几个候选点 $B_i(t)M_i^{-1}p$ 的凸包里——换句话说，顶点是在几个位置之间\"插值\"，不是在\"外推\"。 RTR4 特别指出：权重超出 $[0,1]$ 或不求和为 1，只在配合 morph target 这类叠加式混合时才成立。\nLBS 的固有缺陷：两个旋转矩阵加权求和，得到的不是一个旋转——它的行列式会小于 1， 也就是\"缩了\"。这在关节处表现为体积塌陷；如果两根骨骼之间是扭转关系，表现为\"糖果纸“式的收腰。\n上面那个演示就是在量化这件事。权重 $w$ 处的半径保留率是：\n$$\\text{retention}(w,\\varphi) = \\sqrt{1 - 2w(1-w)(1-\\cos\\varphi)}$$$w = 0.5$ 时它退化成干净的 $|\\cos(\\varphi/2)|$ ——扭转 170°，半径只剩 8.7%。 损失在 $w = 0$ 和 $w = 1$ 两端为零，在中间最大，所以那条\"收腰\"正好出现在混合区正中。\nRTR4 给的替代方案是双四元数蒙皮：它混合的是旋转本身而不是矩阵，结果仍是刚体变换， 半径分毫不损。代价是\"计算量不到线性混合的 1.5 倍”（RTR4 原话），以及可能出现的膨胀。\n二、整体流程 抛开引擎，整条链路是五步。这张图值得记，后面讲三家差异时全靠它定位：\n┌─ ① 建模时（离线）────────────────────────────────┐\r│ 顶点 p、每顶点的骨骼索引/权重、每骨骼的逆绑定矩阵 M⁻¹ │ → 存进资源\r└──────────────────────────────────────────────┘\r┌─ ② 每帧 CPU：骨骼层级求值 ───────────────────────┐\r│ local pose（动画曲线/IK/重定向的结果） │\r│ ↓ 逐级乘（父先算） │\r│ global pose B_i │ → 纯 CPU，与 GPU 无关\r└──────────────────────────────────────────────┘\r┌─ ③ 每帧 CPU：算蒙皮矩阵 ─────────────────────────┐\r│ S_i = B_i · M_i⁻¹ │ → 每根骨骼一个矩阵\r└──────────────────────────────────────────────┘\r┌─ ④ 每帧 GPU：顶点混合 ───────────────────────────┐\r│ u = Σ w_i · S_i · p │ ← ★ 三家差异都在这一步\r└──────────────────────────────────────────────┘\r┌─ ⑤ 之后：当普通静态网格走完剩下的管线 ─────────────┐\r│ 法线/切线处理 → 投影 → 光栅化 → 着色 │\r└──────────────────────────────────────────────┘\r三点值得强调：\n②③ 是纯 CPU 的，和 GPU 无关。骨骼层级求值（含 IK、重定向、状态机）全部发生在这一步， 代价随骨骼数增长，而不是顶点数。这就是为什么\"骨骼数量\"和\"顶点数量\"是两个独立的性能维度。 第 ④ 步才是\"蒙皮\"这个名字真正指的那一步，也是唯一需要 GPU 的一步。 第 ⑤ 步是\"先算一遍写进顶点缓冲\"这个设计能成立的前提：蒙皮完的顶点，和静态网格顶点 在后续管线里没有任何区别。 再看数据规模，就知道为什么三家都往 GPU 挪：\n步骤 规模 每帧变化 ③ 算蒙皮矩阵 骨骼数（几十到几百） × 一个 3×4 矩阵 每根骨骼一次矩阵乘 ④ 顶点混合 顶点数（几万到几百万） × 4 次矩阵乘 每个顶点都得算 差三到四个数量级。所以骨骼层级求值留在 CPU（要跑游戏逻辑、要读动画曲线）， 顶点混合赶去 GPU——这个分工三家完全一致。\n三、最小可抄的实现 抛开引擎，这件事的全部核心代码不到 20 行。\nCPU 侧：把骨骼层级算成蒙皮矩阵\ndef compute_skin_matrices(skeleton, pose): \"\"\"skeleton: 父索引 + 逆绑定矩阵；pose: 每个骨骼的局部变换\"\"\" global_pose = [None] * len(skeleton) for i in skeleton.topo_order(): # 保证父先算 p = skeleton.parent[i] global_pose[i] = (pose[i] if p \u003c 0 else global_pose[p] @ pose[i]) # 每帧真正要上传的就是这个 return [global_pose[i] @ skeleton.inverse_bind[i] for i in range(len(skeleton))] 注意 global_pose[p] @ pose[i] 的顺序：是父的全局变换左乘本骨的局部变换。\nGPU 侧：每顶点混合（GLSL）\n// skin[]：蒙皮矩阵数组；b：4 个骨骼索引；w：4 个归一化权重 mat4 m = w.x * skin[b.x] + w.y * skin[b.y] + w.z * skin[b.z] + w.w * skin[b.w]; out_position = (m * vec4(in_position, 1.0)).xyz; out_normal = normalize(mat3(m) * in_normal); // ← 注意：没有逆转置 out_tangent = normalize(mat3(m) * in_tangent); 两处最容易写错的地方：\n① 矩阵顺序。 $B M^{-1}$ 是对的，$M^{-1} B$ 是错的。差别在这个逆矩阵是\"进骨骼空间\"还是\"出骨骼空间\"。 用 2 骨骼的具体例子验一下：顶点在 $p$、骨骼 $i$ 的绑定变换是 $M_i$， 那 $M_i^{-1}p$ 给出的是\"这个顶点在骨骼坐标系里的位置\"， 再被 $B_i$ 搬回世界——这是对的。\n② 权重不是\"几个位置的加权平均\"这么简单。 严格写是 $\\sum w_i (S_i p)$ ——先把顶点变换到几个位置，再插值。 但因为它对 $p$ 是线性的，可以等价地先算矩阵加权和 $\\left(\\sum w_i S_i\\right) p$。 shader 里都是后者（省 3 次矩阵-向量乘）。两种写法数学上等价，但只有在线性混合下等价—— 一旦换成双四元数，就不能这么交换了。\n四、三个引擎怎么落地 先给结论性的对照表（细节在下一节）：\nUE 5.8 Unity 2022.3 LTS Godot（RD 渲染器） 默认蒙皮位置 GPUSkinCache 的 compute 引擎侧 compute skeleton.glsl 的 compute 场景 VS 里有没有蒙皮 有，但要显式用 GPUSkin 顶点工厂 没有（UnityCG.cginc 里 skin 0 命中） 没有（VS 里只声明了属性，实际只给粒子拖尾用） 备选路径 纯 CPU 蒙皮 顶点着色器蒙皮宏（老式） GLES3 走 transform feedback + 骨骼纹理 每顶点骨骼数 4，可再加一组 4（上限 12） 1 / 2 / 4，按 BonesPerVertex 分支 4 或 8 骨骼矩阵 3×float4/骨（转置打包） compute 用 StructuredBuffer；VS 用 float4 Bones[N*3] 3×vec4/骨（storage buffer） 线程组 [numthreads(64,1,1)] [numthreads(64, 1, 1)] local_size_x = 64 法线逆转置 无 无 无 运行时归一化权重 否 2 骨分支归一化，4 骨分支不归一化 否 UE：4 骨混合的完整函数体 真正做混合的是 ComputeBoneMatrixWithLimitedInfluences （Engine/Shaders/Private/GpuSkinCommon.ush:230）：\nFBoneMatrix ComputeBoneMatrixWithLimitedInfluences(FComputeBoneMatrixInputs Inputs, FGPUSkinIndexAndWeight In, bool bExtraInfluences = GPUSKIN_USE_EXTRA_INFLUENCES) { FBoneMatrix BoneMatrix = In.BlendWeights.x * LoadSkinningBoneTransform(Inputs, In.BlendIndices.x); BoneMatrix += In.BlendWeights.y * LoadSkinningBoneTransform(Inputs, In.BlendIndices.y); #if !GPUSKIN_LIMIT_2BONE_INFLUENCES BoneMatrix += In.BlendWeights.z * LoadSkinningBoneTransform(Inputs, In.BlendIndices.z); BoneMatrix += In.BlendWeights.w * LoadSkinningBoneTransform(Inputs, In.BlendIndices.w); if (bExtraInfluences) { BoneMatrix += In.BlendWeights2.x * LoadSkinningBoneTransform(Inputs, In.BlendIndices2.x); // …再累加余下三根 } #endif return BoneMatrix; } 顶点工厂拿到这个混合好的矩阵后，只做一次乘法（GpuSkinVertexFactory.ush:581）：\nfloat3 SkinPosition( FVertexFactoryInput Input, FVertexFactoryIntermediates Intermediates ) { // … // Note the use of mul(Matrix,Vector), bone matrices are stored transposed // for tighter packing. Position = mul(Intermediates.BlendMatrix, float4(Position, 1)); return Position; } 那句注释值得单说：骨骼矩阵是转置存的，为了打包更紧。 UE 每根骨骼存 3 个 float4（3×4 而不是 4×4）——4×4 的第四行永远是 (0,0,0,1)，没必要存。 Unity 的 float4 Bones[N*3] 和 Godot 的 3 个 vec4 都是同一个套路。三家在这件事上完全一致。\nGPU 蒙皮走的是 GpuSkinCacheComputeShader.usf:194：\n[numthreads(64,1,1)] void SkinCacheUpdateBatchCS(uint3 GroupID : SV_GroupID, uint3 DispatchThreadID : SV_DispatchThreadID, …) 写回两个 UAV——位置（每顶点 3 个 float）与切线（每顶点 2 个 SNORM float4）：\nPositionBufferUAV[OutputOffset * 3 + 0] = SPos.x; PositionBufferUAV[OutputOffset * 3 + 1] = SPos.y; PositionBufferUAV[OutputOffset * 3 + 2] = SPos.z; // … TangentBufferUAV[2 * OutputOffset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_X] = TangentUnbias_SkinCache(half4(TangentX, Unpacked.TangentX.w)); TangentBufferUAV[2 * OutputOffset + GPUSKIN_RWBUFFER_OFFSET_TANGENT_Z] = TangentUnbias_SkinCache(half4(TangentZ, Unpacked.TangentZ.w)); 这些缓冲区随后作为 SRV 绑给一个 passthrough 顶点工厂——对场景着色器来说，它就是普通的顶点流。 这正是 RTR4 那句话的实现：“UAV 存储允许复用蒙皮结果。”\nUnity：着色器里一行蒙皮代码都没有 这是我在核实时最意外的一条。UnityCG.cginc（本机 1242 行）里搜 skin（不区分大小写）——0 命中。 URP 的运行时 ShaderLibrary/（92 个文件）也没有蒙皮实现。\n真正的蒙皮在引擎侧提交的 compute shader 里。 Internal-Skinning.compute 有 16 个 kernel（骨骼数 1/2/4 与法线/切线各一组），核心是：\n[numthreads(64, 1, 1)] void main(uint3 threadID : SV_DispatchThreadID) 每顶点做的事（Internal-Skinning-Util.cginc，4 骨分支）：\nconst float4x4 blendedMatrix = inMatrices[si.index0] * si.weight0 + inMatrices[si.index1] * si.weight1 + inMatrices[si.index2] * si.weight2 + inMatrices[si.index3] * si.weight3; ouputVertex.pos = mul(blendedMatrix, float4(vPos, 1)).xyz; ouputVertex.norm = mul(blendedMatrix, float4(vNorm, 0)).xyz; ouputVertex.tang.xyz= mul(blendedMatrix, float4(vTang, 0)).xyz; 和 UE 的形式完全一样，只是骨骼矩阵是 StructuredBuffer（没做 3×4 打包）。\n但 Unity 还有一条老式的顶点着色器路径，就在 CGIncludes/VertexShaderSkinning.cginc 里。 骨骼矩阵以 uniform 数组存在，骨数上限是常量：\n#if ENABLE_VS_SKINNING \u0026\u0026 !defined(SHADER_API_METAL) static const int max_bone_count = 64; uniform float4 Bones[max_bone_count * 3]; #elif ENABLE_VS_SKINNING_MORE_BONES || (ENABLE_VS_SKINNING \u0026\u0026 defined(SHADER_API_METAL)) static const int max_bone_count = 320; 64 还是 320，这个数字就是 RTR4 说的\"寄存器上限\"——装不下就得换回 compute 或者纹理。 文件里还留着 ENABLE_VS_SKINNING_TEX 分支（骨骼矩阵走纹理），但只有一行 // todo，没实现。\n有意思的是这条路径今天还在被用：URP 的 2D 着色器就调它 （Shaders/2D/RenderAs2D-Flattening.shader:64）：\nDO_VS_SKINNING_PARAM3(v.positionOS, v.boneWeights, v.boneIndices); 所以准确的说法不是\"URP 不做蒙皮\"，而是：URP 的 3D 着色器不做蒙皮，2D 的反而做。\n顺便，morph target 也是 compute，而且是在蒙皮结果上原地累加 （Internal-BlendShape.compute）：\nMeshVertex vertex = FetchVert(inOutMeshVertices, vertIndex); vertex.pos += blendShapeVert.pos * g_Weight; ——这正是 RTR4 Eq 4.61 的 $M = N + \\sum w_i D_i$。顺序也清楚了： 先蒙皮，再在结果上叠加 morph 位移。\nGodot：一个专职的 compute shader RD 渲染器里没有顶点着色器蒙皮。场景着色器虽然声明了骨骼属性，但实际只给粒子拖尾用 （scene_forward_clustered.glsl:63）：\n#if defined(BONES_USED) || defined(USE_PARTICLE_TRAILS) layout(location = 10) in uvec4 bone_attrib; #endif 真正的蒙皮在 servers/rendering/renderer_rd/shaders/skeleton.glsl——一个专职的 compute：\n#[compute] #version 450 layout(local_size_x = 64, local_size_y = 1, local_size_z = 1) in; 3D 的混合（:248 起，含 8 骨分支）：\nuint skin_offset = params.skin_stride * index; uvec2 bones = uvec2(src_bone_weights.data[skin_offset + 0], src_bone_weights.data[skin_offset + 1]); uvec2 bones_01 = uvec2(bones.x \u0026 0xFFFF, bones.x \u003e\u003e 16) * 3; //pre-add xform offset // … mat4 m = mat4(bone_transforms.data[bones_01.x], bone_transforms.data[bones_01.x + 1], bone_transforms.data[bones_01.x + 2], vec4(0.0, 0.0, 0.0, 1.0)) * weights_01.x; m += mat4(bone_transforms.data[bones_01.y], …) * weights_01.y; // … 结尾那几行注意一下乘法方向：\n//reverse order because its transposed vertex = (vec4(vertex, 1.0) * m).xyz; normal = normalize((vec4(normal, 0.0) * m).xyz); 是行向量右乘，因为矩阵按转置存的——和 UE 那句注释说的是同一件事，只是写法相反。\ndispatch 在 mesh_storage.cpp:1283，每个顶点一个线程：\nRD::get_singleton()-\u003ecompute_list_dispatch_threads(compute_list, push_constant.vertex_count, 1, 1); 跨平台这条线 Godot 分得最清楚：RD（Forward+/Mobile）走 compute， 而 GLES3（Compatibility）走的是 transform feedback + 骨骼矩阵纹理 （drivers/gles3/shaders/skeleton.glsl 用 texelFetch(skeleton_texture, ivec2(m % 256u, m / 256u), 0)， 纹理宽固定 256）。这是\"移动端不能假定有 compute\"时代的遗产，今天仍然健在。\n五、只有翻源码才知道的五件事 ① 三家都不在场景顶点着色器里蒙皮。\n这不是巧合，而是同一个性能判断的必然结果：顶点数比骨骼数大几个数量级， “每帧算一遍写回顶点缓冲\"比\"每次绘制都在 VS 里重算\"省——尤其是同一个网格被多个 pass （阴影、深度、GBuffer、速度）画的时候，蒙皮只算一次，后面全是读。\n这也解释了几个平时会遇到的现成现象：\nUE 为什么能看到 GPUSkinCache 的独立统计项（它是个独立的 pass，不是绘制的一部分）\rUnity 为什么 MeshDeformation 要分三档（CPU / GPU / GPU Batched）来权衡 dispatch 开销\rGodot 为什么 profiler 里能看到 compute 项，且 GLES3 后端行为不一样\r② 法线不做逆转置。\nRTR4 §4.4 明说骨骼被拉伸压扁时可能需要 $M^{-\\mathsf T}$。但三家都没做。 实测 UE 的三个蒙皮文件里 InverseTranspose 出现 0 次；\n为什么会这样？ 因为骨骼变换绝大多数时候是\"旋转 + 平移”（刚体）， 非均匀缩放在骨骼动画里很少见——通常只有美术手动拉过骨骼长度，或者某些夸张形变才会出现。 每顶点做一次逆转置的代价不值，所以规则留着、执行权交给使用者。 真出现拉伸变形时，正确做法是在导入/导出阶段把缩放烘进绑定姿势，而不是在 shader 里补救。\n③ 权重不在运行时重新归一化——除了 Unity 的 2 骨分支。\nUE 的 GetBlendIndicesAndWeights 只做 UnpackRGBA8（÷255）和 UnpackUnorm2x16（÷65535）； Godot 的 compute 只有加权求和，没有除以权重和。但 Unity 的顶点蒙皮宏里有一个例外：\nelse if (BonesPerVertex == 2) { // assume first two bone weights should have non-zero sum float weight1 = boneWeights_in.x / (boneWeights_in.x + boneWeights_in.y); localToWorldMatrix = GET_MATRIX(boneIndices_in.x) * weight1; localToWorldMatrix += GET_MATRIX(boneIndices_in.y) * (1 - weight1); } else if (BonesPerVertex == 4) { localToWorldMatrix = GET_MATRIX(boneIndices_in.x) * boneWeights_in.x; localToWorldMatrix += GET_MATRIX(boneIndices_in.y) * boneWeights_in.y; // …直接加权，没有归一化 } 同一个文件里，2 骨分支归一化、4 骨分支不归一化——注释写的是\"假定前两个权重之和不为零\"， 所以它是个防御性除法（避免 0 除），不是通用归一化。这也说明引擎作者清楚权重要求和为 1， 只是把这件事交给了导入器。\n④ UE 的 skin cache key 是「骨骼缓冲指针 + 版本号」，不是变换的哈希。\nGPUSkinCache 判断\"这个网格需不需要重新蒙皮\"，靠的是 (骨骼缓冲对象指针, RevisionNumber) 这个二元组，而不是比较变换数值。 代价是：骨骼缓冲被重新分配时会误判（指针变了但内容没变）， 所以代码里专门有个 UpdatePreviousBoneBuffer 去修正指针。\n为什么这样更快：比较几百个骨骼的矩阵哈希要读几百 KB；比较一个指针和一个计数器是常数时间。 蒙皮的失效判断发生在每帧、每个网格上，所以这个选择一点都不奇怪。\n⑤ Godot 把 bind pose 存成「逆」。\nskin-\u003eset_bind_pose(i, skin-\u003eget_bind_pose(i).affine_inverse()); 于是上传时直接 global_pose * get_bind_pose(i) 就得到蒙皮矩阵（见第一节那段代码）， 省掉了一次运行时求逆。这也解释了为什么读 Godot 代码时会困惑\"这个 bind_pose 到底是哪个方向\"—— 它存的是 $M^{-1}$，不是 $M$。\n小结 三句话：\n蒙皮就是\"把绑定姿势下的顶点搬到当前姿势下\"：$u = \\sum w_i B_i M_i^{-1} p$，每帧变的只有 $B_i$ “谁在算\"有三个层次，三家的默认路径都是\"独立 compute + 写回顶点缓冲”， 场景顶点着色器只读结果——这解释了 UE 的 SkinCache 统计、Unity 的三档模式、Godot 的 compute profiler 项 教科书里的规则（法线逆转置、权重归一化）在工业实现里被两种不同方式绕过了： 该做的留给使用者和导入器，运行时只做必要的事 行动点：下次你看到角色的膝关节处塌陷、或者某个网格在蒙皮时莫名变细， 先算一下这个部位的权重是不是接近 0.5——因为体积损失最大正是发生在\"一半一半\"的地方 （$\\text{retention} = \\sqrt{1-2w(1-w)(1-\\cos\\varphi)}$）。 那不是美术权重刷错了，是 LBS 本身的数学。\n附录一：可运行的验证脚本 纯 Python 标准库。就算法本身、以及第一篇里那个\"法线到底该用哪个矩阵\"的问题， 都能在这里独立复现：\n#!/usr/bin/env python3 \"\"\"骨骼蒙皮核心：蒙皮矩阵、LBS 的体积损失、DQS 为什么没有损失。纯标准库。\"\"\" import math # ── 4x4 矩阵（列主序，和 OpenGL 一致） ── def mat_identity(): return [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1] def mat_translate(x, y, z): m = mat_identity(); m[12], m[13], m[14] = x, y, z; return m def mat_rotate_x(a): c, s = math.cos(a), math.sin(a) return [1,0,0,0, 0,c,s,0, 0,-s,c,0, 0,0,0,1] def mat_mul(A, B): return [sum(A[k*4+i]*B[j*4+k] for k in range(4)) for j in range(4) for i in range(4)] def mat_apply(M, p): \"\"\"列主序：(行 r, 列 c) 存在 M[c*4+r]\"\"\" x, y, z = p return tuple(M[0*4+i]*x + M[1*4+i]*y + M[2*4+i]*z + M[3*4+i] for i in range(3)) def mat_inverse_rigid(M): \"\"\"刚体矩阵求逆：旋转转置 + 平移取负（比通用求逆快也稳）\"\"\" R = [[M[c*4+r] for c in range(3)] for r in range(3)] # 取 3x3 t = (M[12], M[13], M[14]) Rt = [[R[c][r] for c in range(3)] for r in range(3)] # 转置 nt = tuple(-sum(Rt[r][c]*t[c] for c in range(3)) for r in range(3)) out = mat_identity() for r in range(3): for c in range(3): out[c*4+r] = Rt[r][c] out[12], out[13], out[14] = nt return out # ── 蒙皮矩阵：S = B · M⁻¹ ── def skin_matrix(global_pose, inverse_bind): return mat_mul(global_pose, inverse_bind) # ── LBS：半径保留率 ── def lbs_retention(w, phi): \"\"\"两个相差 phi 的旋转、权重 w 混合后，半径的保留比例\"\"\" return math.sqrt(max(0.0, 1 - 2*w*(1-w)*(1 - math.cos(phi)))) print(\"=== ① 蒙皮矩阵就是 B·M⁻¹（用一个绕 X 轴转 90° 的骨骼验） ===\") M = mat_rotate_x(0) # 绑定姿势：单位变换 B = mat_rotate_x(math.pi/2) # 当前姿势：转 90° Minv = mat_inverse_rigid(M) S = skin_matrix(B, Minv) p = (0.0, 1.0, 0.0) print(f\" 顶点 {p} 经蒙皮矩阵 → {tuple(round(v,6) for v in mat_apply(S, p))}\") print(f\" 直接用 B 作用 → {tuple(round(v,6) for v in mat_apply(B, p))}\") print(\" （绑定姿势是单位变换，所以 M⁻¹=I，两者相同）\") print(\"\\n=== ② 绑定姿势非平凡时，先把顶点送进骨骼空间 ===\") M2 = mat_translate(1.0, 0.0, 0.0) # 骨骼装在 (1,0,0) B2 = mat_mul(mat_translate(1.0, 0.0, 0.0), mat_rotate_x(math.pi/2)) # 绕「自己的原点」转 90° Minv2 = mat_inverse_rigid(M2) S2 = skin_matrix(B2, Minv2) p2 = (1.0, 1.0, 0.0) # 骨骼原点正上方 1 处 print(f\" 顶点 {p2} 在骨骼坐标系里 = {tuple(round(v,6) for v in mat_apply(Minv2, p2))}\") print(f\" 经蒙皮矩阵 → {tuple(round(v,6) for v in mat_apply(S2, p2))}\") print(\" （绕骨骼自身原点转 90°：(1,1,0) → (1,0,1)；注意不是绕世界原点）\") print(\"\\n=== ③ LBS 的半径保留率：w=0.5 时退化为 |cos(φ/2)| ===\") print(f\" {'φ':\u003e6} {'w=0.5 通用式':\u003e14} {'|cos(φ/2)|':\u003e12} {'误差':\u003e10}\") for deg in (0, 30, 60, 90, 120, 150, 170): phi = math.radians(deg) a, b = lbs_retention(0.5, phi), abs(math.cos(phi/2)) print(f\" {deg:\u003e5}° {a:\u003e14.6f} {b:\u003e12.6f} {abs(a-b):\u003e10.1e}\") print(\"\\n=== ④ 损失在两端为零、中间最大 ===\") phi = math.radians(120) for w in (0.0, 0.1, 0.25, 0.5, 0.75, 0.9, 1.0): print(f\" w={w:\u003c5} → 保留率 {lbs_retention(w, phi):.6f}\") print(\"\\n=== ⑤ 对比：DQS 混合的是旋转，半径无损 ===\") # 两个同轴旋转（相差 phi）的对偶四元数混合 = 旋转 w·phi，半径不变 for w in (0.25, 0.5, 0.75): phi = math.radians(120) print(f\" w={w:\u003c5} → DQS 保留率 1.000000（旋转 {w*120:.1f}°）\" f\" LBS 保留率 {lbs_retention(w, phi):.6f}\") 运行输出的关键几行（下面这些是实际跑出来的，不是示意）：\n顶点 (0.0, 1.0, 0.0) 经蒙皮矩阵 → (0.0, 0.0, 1.0)\r顶点 (1.0, 1.0, 0.0) 在骨骼坐标系里 = (0.0, 1.0, 0.0)\r顶点 (1.0, 1.0, 0.0) 经蒙皮矩阵 → (1.0, 0.0, 1.0)\rφ w=0.5 通用式 |cos(φ/2)| 误差\r0° 1.000000 1.000000 0.0e+00\r30° 0.965926 0.965926 0.0e+00\r60° 0.866025 0.866025 1.1e-16\r90° 0.707107 0.707107 0.0e+00\r120° 0.500000 0.500000 0.0e+00\r150° 0.258819 0.258819 1.7e-16\r170° 0.087156 0.087156 1.7e-16\rw=0.0 → 保留率 1.000000\rw=0.5 → 保留率 0.500000\rw=1.0 → 保留率 1.000000\r最后三行就是这个毛病的全貌：权重在两端时毫无损失，在\"一半一半\"的地方损失最大。\n附录二：三引擎速查 想找什么 UE 5.8 Unity 2022.3 Godot 每顶点混合 GpuSkinCommon.ush ComputeBoneMatrixWithLimitedInfluences Internal-Skinning-Util.cginc DoSkinning skeleton.glsl 的 has_skeleton 分支 GPU 蒙皮入口 GpuSkinCacheComputeShader.usf SkinCacheUpdateBatchCS Internal-Skinning.compute main skeleton.glsl main 谁发 dispatch GPUSkinCache.cpp 引擎侧（C++） MeshStorage::update_mesh_instances 骨骼矩阵怎么传 3×float4/骨 StructuredBuffer 3×vec4/骨（storage buffer） 顶点着色器还会碰蒙皮吗 只有 GPUSkin 顶点工厂 只有老式 VS 宏（URP 2D 在用） 不碰 控制开关 r.SkinCache.* PlayerSettings.gpuSkinning（Unity 6 起是 MeshDeformation） 无（RD 恒走 compute） 附录三：这条链上的常见追问 蒙皮的公式是什么\r→ u = Σ wᵢ BᵢMᵢ⁻¹ p，每帧变的只有 Bᵢ\r→ M⁻¹ 为什么要放后面（先把顶点送进骨骼自己的坐标系）\r→ 为什么三家都把 4x4 存成 3 行（第四行恒为 0,0,0,1）\r→ 权重和必须为 1 吗（是，除非配合 morph target 这类叠加式混合）\r→ 蒙皮在哪算（三个层次；三家默认都在独立 compute）\r→ 法线要不要逆转置（教科书说可能需要，三家都没做，为什么）\r→ 权重要不要每次归一化（三家都不做，契约在导入器；Unity 2 骨分支那个是防 0 除）\r→ 关节塌陷怎么救（双四元数；代价是膨胀与近反极点的处理）\r→ 移动端怎么办（Godot 给 GLES3 留了 transform feedback + 骨骼纹理那条路）\r参考 RTR4 §4.4 Vertex Blending（书内 p.84–87）：Eq 4.59、权重约束与凸包、GPU 适用性、 “UAV 存储允许复用蒙皮结果”、双四元数的代价（\u003c1.5×）与膨胀 RTR4 §4.5 Morphing（书内 p.87–90）：Eq 4.60、Eq 4.61（morph target） UE 5.8 源码：Engine/Shaders/Private/GpuSkinCommon.ush、GpuSkinVertexFactory.ush、 GpuSkinCacheComputeShader.usf、Engine/Source/Runtime/Engine/Public/GPUSkinPublicDefs.h Unity 2022.3.62 LTS：Editor/Data/CGIncludes/builtin_shaders.zip 内的 CGIncludes/VertexShaderSkinning.cginc、DefaultResources/Internal-Skinning.compute、 DefaultResources/Internal-Skinning-Util.cginc、DefaultResources/Internal-BlendShape.compute Godot：servers/rendering/renderer_rd/shaders/skeleton.glsl、 servers/rendering/renderer_rd/storage_rd/mesh_storage.cpp、 scene/3d/skeleton_3d.cpp、drivers/gles3/shaders/skeleton.glsl 本文所有数值（半径保留率、蒙皮矩阵算例）由附录一脚本算出，交互演示里可实时对照 ",
+  "wordCount" : "1880",
+  "inLanguage": "zh",
+  "image":"https://froler27.github.io/images/brand/og-1200x630.png","datePublished": "2026-09-22T00:00:00+08:00",
+  "dateModified": "2026-09-22T00:00:00+08:00",
+  "author":{
+    "@type": "Person",
+    "name": "Froler27"
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://froler27.github.io/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "幻域 · 渲染笔记",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://froler27.github.io/favicon.ico"
+    }
+  }
+}
+</script>
+</head>
+<body id="top">
+    <header class="header">
+    <nav class="header-nav">
+        <div class="logo">
+            <a href="https://froler27.github.io/" accesskey="h" title="幻域 · 渲染笔记 (Alt + H)">
+                    <img src="https://froler27.github.io/images/logo.svg" alt="" aria-label="logo"
+                        height="34">幻域 · 渲染笔记</a>
+            <div class="logo-switches">
+                <button id="theme-toggle" class="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg class="moon" xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg class="sun" xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <ul id="menu" class="menu">
+            <li>
+                <a href="https://froler27.github.io/posts/" title="文章">
+                    <span>文章</span>
+                </a>
+            </li>
+            <li>
+                <a href="https://froler27.github.io/tags/" title="标签">
+                    <span>标签</span>
+                </a>
+            </li>
+            <li>
+                <a href="https://froler27.github.io/search/" title="搜索 (Alt &#43; /)" accesskey=/>
+                    <span>搜索</span>
+                </a>
+            </li>
+            <li>
+                <a href="https://froler27.github.io/about/" title="关于">
+                    <span>关于</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <nav class="breadcrumbs" role="navigation" aria-label="Breadcrumb">
+            <a href="/">主页</a>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-right">
+                <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+            <a href="/posts/">文章</a>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-right">
+            <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+        <span class="breadcrumbs-current">骨骼蒙皮：三个引擎都不在顶点着色器里做</span>
+</nav>
+    <h1 class="post-title entry-hint-parent">
+      骨骼蒙皮：三个引擎都不在顶点着色器里做
+    </h1>
+    <div class="post-meta">
+
+<span title='2026-09-22 00:00:00 +0800 CST'>2026-09-22</span>&nbsp;·&nbsp;<span>9 分钟</span>&nbsp;·&nbsp;<span>Froler27</span>
+
+</div>
+  </header> <details class="toc" >
+    <summary accesskey="c" title="(Alt + C)">
+        <span class="title">目录</span>
+    </summary>
+
+    <div class="inner"><ul>
+            <li>
+                <a href="#%e7%bb%93%e8%ae%ba" aria-label="结论">结论</a><ul>
+                    
+            <li>
+                <a href="#%e4%b8%80%e4%ba%9b%e5%89%8d%e7%bd%ae%e8%af%b4%e6%98%8e" aria-label="一些前置说明">一些前置说明</a></li></ul>
+            </li>
+            <li>
+                <a href="#%e4%b8%80%e8%92%99%e7%9a%ae%e5%9c%a8%e7%ae%97%e4%bb%80%e4%b9%88" aria-label="一、蒙皮在算什么">一、蒙皮在算什么</a></li>
+            <li>
+                <a href="#%e4%ba%8c%e6%95%b4%e4%bd%93%e6%b5%81%e7%a8%8b" aria-label="二、整体流程">二、整体流程</a></li>
+            <li>
+                <a href="#%e4%b8%89%e6%9c%80%e5%b0%8f%e5%8f%af%e6%8a%84%e7%9a%84%e5%ae%9e%e7%8e%b0" aria-label="三、最小可抄的实现">三、最小可抄的实现</a></li>
+            <li>
+                <a href="#%e5%9b%9b%e4%b8%89%e4%b8%aa%e5%bc%95%e6%93%8e%e6%80%8e%e4%b9%88%e8%90%bd%e5%9c%b0" aria-label="四、三个引擎怎么落地">四、三个引擎怎么落地</a><ul>
+                    
+            <li>
+                <a href="#ue4-%e9%aa%a8%e6%b7%b7%e5%90%88%e7%9a%84%e5%ae%8c%e6%95%b4%e5%87%bd%e6%95%b0%e4%bd%93" aria-label="UE：4 骨混合的完整函数体">UE：4 骨混合的完整函数体</a></li>
+            <li>
+                <a href="#unity%e7%9d%80%e8%89%b2%e5%99%a8%e9%87%8c%e4%b8%80%e8%a1%8c%e8%92%99%e7%9a%ae%e4%bb%a3%e7%a0%81%e9%83%bd%e6%b2%a1%e6%9c%89" aria-label="Unity：着色器里一行蒙皮代码都没有">Unity：着色器里一行蒙皮代码都没有</a></li>
+            <li>
+                <a href="#godot%e4%b8%80%e4%b8%aa%e4%b8%93%e8%81%8c%e7%9a%84-compute-shader" aria-label="Godot：一个专职的 compute shader">Godot：一个专职的 compute shader</a></li></ul>
+            </li>
+            <li>
+                <a href="#%e4%ba%94%e5%8f%aa%e6%9c%89%e7%bf%bb%e6%ba%90%e7%a0%81%e6%89%8d%e7%9f%a5%e9%81%93%e7%9a%84%e4%ba%94%e4%bb%b6%e4%ba%8b" aria-label="五、只有翻源码才知道的五件事">五、只有翻源码才知道的五件事</a></li>
+            <li>
+                <a href="#%e5%b0%8f%e7%bb%93" aria-label="小结">小结</a></li>
+            <li>
+                <a href="#%e9%99%84%e5%bd%95%e4%b8%80%e5%8f%af%e8%bf%90%e8%a1%8c%e7%9a%84%e9%aa%8c%e8%af%81%e8%84%9a%e6%9c%ac" aria-label="附录一：可运行的验证脚本">附录一：可运行的验证脚本</a></li>
+            <li>
+                <a href="#%e9%99%84%e5%bd%95%e4%ba%8c%e4%b8%89%e5%bc%95%e6%93%8e%e9%80%9f%e6%9f%a5" aria-label="附录二：三引擎速查">附录二：三引擎速查</a></li>
+            <li>
+                <a href="#%e9%99%84%e5%bd%95%e4%b8%89%e8%bf%99%e6%9d%a1%e9%93%be%e4%b8%8a%e7%9a%84%e5%b8%b8%e8%a7%81%e8%bf%bd%e9%97%ae" aria-label="附录三：这条链上的常见追问">附录三：这条链上的常见追问</a></li>
+            <li>
+                <a href="#%e5%8f%82%e8%80%83" aria-label="参考">参考</a>
+            </li>
+        </ul>
+    </div>
+</details>
+
+  <div class="post-content md-content"><iframe class="demo-frame" src="https://froler27.github.io/demo/skinning.html?embed=1" width="100%" height="1025" loading="lazy" title="骨骼蒙皮 · 交互演示" style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;max-width:100%"></iframe>
+<p><strong>先玩一下</strong>：一根骨头、两个骨骼、中间一段混合区。把扭转角拉到 170°，看左边 LBS 的管子怎么被&quot;掐细&quot;，右边 DQS 却纹丝不动。<a href="https://froler27.github.io/demo/skinning.html">在新窗口打开完整演示 ↗</a></p>
+<h2 id="结论">结论<a hidden class="anchor" aria-hidden="true" href="#结论">#</a></h2>
+<p><strong>① 蒙皮只有一条公式，但&quot;在哪算&quot;有三个层次。</strong></p>
+$$u(t) = \sum_{i} w_i \, B_i(t) M_i^{-1} \, p$$<p>每帧真正变化的是 $B_i(t)$。这三个层次是：<strong>场景顶点着色器内联算</strong>、<strong>独立 compute 算完写回顶点缓冲</strong>、
+<strong>CPU 算</strong>。而三家引擎的默认路径都是第二个——场景顶点着色器只读结果。</p>
+<p><strong>② 蒙皮里法线不做逆转置——三家一致。</strong></p>
+<p>尽管 RTR4 §4.4 明说&quot;骨骼被拉伸压扁时可能需要 $M^{-\mathsf T}$&quot;，
+但实测：UE 的三个蒙皮着色器里 <code>InverseTranspose</code> 出现 <strong>0 次</strong>，
+Unity 的顶点蒙皮宏和 compute 也都是直接用混合后的矩阵变换法线再归一化。
+<strong>知道规则，但在蒙皮里选择不执行。</strong></p>
+<p><strong>③ 三家都不在运行时把权重重新归一化</strong>（只有一个例外，见第五节第 3 条）。</p>
+<p>它们只做定点→浮点解码（uint8/255、uint16/65535）。这隐含一个契约：<strong>导入时就归一化好了</strong>。</p>
+<hr>
+<h3 id="一些前置说明">一些前置说明<a hidden class="anchor" aria-hidden="true" href="#一些前置说明">#</a></h3>
+<p>本文引用的引擎代码都是逐字核对的，不是转述。三份源码的位置：</p>
+<pre><code>UE      5.8 发布版源码（Engine/Shaders/Private/…）
+Godot   官方仓库（servers/rendering/…）
+Unity   本机安装的 2022.3.62 LTS 分支（团结引擎 2022.3.62t15）
+        —— 内置着色器在 Editor/Data/CGIncludes/builtin_shaders.zip 里
+</code></pre>
+<blockquote>
+<p>为什么强调版本：<strong>Unity 6 的 <code>MeshDeformation</code> 三档枚举（CPU / GPU / GPUBatched）
+在 2022.3 里根本不存在</strong>——2022.3 只有一个 <code>PlayerSettings.gpuSkinning</code> 布尔开关。
+拿 Unity 6 的文档去讲 2022.3 的实现，会讲错。</p>
+</blockquote>
+<h2 id="一蒙皮在算什么">一、蒙皮在算什么<a hidden class="anchor" aria-hidden="true" href="#一蒙皮在算什么">#</a></h2>
+<p>想象一条胳膊。用刚体变换把上臂和前臂当成两个独立物体来动，肘部就会露馅——两个物体在关节处是重叠的，
+不是连起来的。蒙皮解决的就是这件事：<strong>让&quot;皮肤&quot;在关节处连续地过渡</strong>。</p>
+<p>数学形式是 RTR4 的 Eq 4.59（p.84）：</p>
+$$u(t) = \sum_{i=0}^{n-1} w_i \, B_i(t) M_i^{-1} p \qquad \sum w_i = 1,\ w_i \ge 0$$<p>三个符号的含义值得逐个说清，因为搞混顺序是最常见的错误来源：</p>
+<table>
+	<thead>
+			<tr>
+					<th>符号</th>
+					<th>含义</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>$p$</td>
+					<td>顶点的<strong>绑定姿势</strong>坐标（建模时那个静态模型里的位置）</td>
+			</tr>
+			<tr>
+					<td>$M_i$</td>
+					<td>把绑定姿势下的顶点<strong>送进骨骼 $i$ 的坐标系</strong>的变换</td>
+			</tr>
+			<tr>
+					<td>$B_i(t)$</td>
+					<td>骨骼 $i$ 当前的<strong>世界变换</strong>（随时间变）</td>
+			</tr>
+			<tr>
+					<td>$w_i$</td>
+					<td>骨骼 $i$ 对这个顶点的影响权重</td>
+			</tr>
+	</tbody>
+</table>
+<p><strong>为什么要 $M_i^{-1}$，而且为什么在后面？</strong> 因为它负责&quot;把顶点搬进骨骼自己的坐标系&quot;。
+骨骼的动画变换 $B_i(t)$ 是在<strong>骨骼自己的空间里</strong>描述的（比如&quot;前臂绕肘部转 90°&quot;），
+所以必须先把顶点送进那个空间，让变换作用完，再出来。连贯起来就是：</p>
+<pre><code>顶点（模型空间） → M⁻¹ → 骨骼空间 → B 作用 → 模型空间
+</code></pre>
+<p><strong>每帧真正要上传的矩阵是 $B_i(t)M_i^{-1}$</strong>，业界叫<strong>蒙皮矩阵</strong>。$M_i^{-1}$ 通常在导入时就算好、
+和模型一起存着，运行时只做一次矩阵乘。Godot 的代码里能直接看到这个式子
+（<code>scene/3d/skeleton_3d.cpp:405</code>）：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">rs</span><span class="o">-&gt;</span><span class="n">skeleton_bone_set_transform</span><span class="p">(</span><span class="n">skeleton</span><span class="p">,</span> <span class="n">i</span><span class="p">,</span> <span class="n">bonesptr</span><span class="p">[</span><span class="n">bone_index</span><span class="p">].</span><span class="n">global_pose</span> <span class="o">*</span> <span class="n">skin</span><span class="o">-&gt;</span><span class="n">get_bind_pose</span><span class="p">(</span><span class="n">i</span><span class="p">));</span>
+</span></span></code></pre></div><p><code>global_pose</code> 就是 $B_i(t)$，<code>skin-&gt;get_bind_pose(i)</code> 存的是<strong>逆</strong>绑定姿态（存&quot;逆&quot;这个细节第五节还会说）✓</p>
+<p><strong>权重那两个约束为什么重要？</strong> 和为 1、非负，意味着结果 $u$ 落在几个候选点
+$B_i(t)M_i^{-1}p$ 的<strong>凸包</strong>里——换句话说，顶点是在几个位置之间&quot;插值&quot;，不是在&quot;外推&quot;。
+RTR4 特别指出：权重超出 $[0,1]$ 或不求和为 1，只在配合 morph target 这类叠加式混合时才成立。</p>
+<p><strong>LBS 的固有缺陷</strong>：两个旋转矩阵加权求和，得到的<strong>不是一个旋转</strong>——它的行列式会小于 1，
+也就是&quot;缩了&quot;。这在关节处表现为<strong>体积塌陷</strong>；如果两根骨骼之间是扭转关系，表现为&quot;<strong>糖果纸</strong>&ldquo;式的收腰。</p>
+<p>上面那个演示就是在量化这件事。权重 $w$ 处的半径保留率是：</p>
+$$\text{retention}(w,\varphi) = \sqrt{1 - 2w(1-w)(1-\cos\varphi)}$$<p>$w = 0.5$ 时它退化成干净的 $|\cos(\varphi/2)|$ ——<strong>扭转 170°，半径只剩 8.7%</strong>。
+损失在 $w = 0$ 和 $w = 1$ 两端为零，在中间最大，所以那条&quot;收腰&quot;正好出现在混合区正中。</p>
+<p>RTR4 给的替代方案是<strong>双四元数蒙皮</strong>：它混合的是<em>旋转本身</em>而不是矩阵，结果仍是刚体变换，
+半径分毫不损。代价是&quot;计算量不到线性混合的 1.5 倍&rdquo;（RTR4 原话），以及可能出现的<strong>膨胀</strong>。</p>
+<h2 id="二整体流程">二、整体流程<a hidden class="anchor" aria-hidden="true" href="#二整体流程">#</a></h2>
+<p>抛开引擎，整条链路是五步。这张图值得记，后面讲三家差异时全靠它定位：</p>
+<pre><code>┌─ ① 建模时（离线）────────────────────────────────┐
+│  顶点 p、每顶点的骨骼索引/权重、每骨骼的逆绑定矩阵 M⁻¹  │  → 存进资源
+└──────────────────────────────────────────────┘
+┌─ ② 每帧 CPU：骨骼层级求值 ───────────────────────┐
+│  local pose（动画曲线/IK/重定向的结果）              │
+│    ↓ 逐级乘（父先算）                              │
+│  global pose  B_i                                   │  → 纯 CPU，与 GPU 无关
+└──────────────────────────────────────────────┘
+┌─ ③ 每帧 CPU：算蒙皮矩阵 ─────────────────────────┐
+│  S_i = B_i · M_i⁻¹                                 │  → 每根骨骼一个矩阵
+└──────────────────────────────────────────────┘
+┌─ ④ 每帧 GPU：顶点混合 ───────────────────────────┐
+│  u = Σ w_i · S_i · p                               │  ← ★ 三家差异都在这一步
+└──────────────────────────────────────────────┘
+┌─ ⑤ 之后：当普通静态网格走完剩下的管线 ─────────────┐
+│  法线/切线处理 → 投影 → 光栅化 → 着色               │
+└──────────────────────────────────────────────┘
+</code></pre>
+<p>三点值得强调：</p>
+<ul>
+<li><strong>②③ 是纯 CPU 的</strong>，和 GPU 无关。骨骼层级求值（含 IK、重定向、状态机）全部发生在这一步，
+代价随骨骼数增长，而不是顶点数。这就是为什么&quot;骨骼数量&quot;和&quot;顶点数量&quot;是两个独立的性能维度。</li>
+<li><strong>第 ④ 步才是&quot;蒙皮&quot;这个名字真正指的</strong>那一步，也是唯一需要 GPU 的一步。</li>
+<li><strong>第 ⑤ 步是&quot;先算一遍写进顶点缓冲&quot;这个设计能成立的前提</strong>：蒙皮完的顶点，和静态网格顶点
+在后续管线里<strong>没有任何区别</strong>。</li>
+</ul>
+<p>再看数据规模，就知道为什么三家都往 GPU 挪：</p>
+<table>
+	<thead>
+			<tr>
+					<th>步骤</th>
+					<th>规模</th>
+					<th>每帧变化</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>③ 算蒙皮矩阵</td>
+					<td>骨骼数（几十到几百） × 一个 3×4 矩阵</td>
+					<td>每根骨骼一次矩阵乘</td>
+			</tr>
+			<tr>
+					<td>④ 顶点混合</td>
+					<td>顶点数（几万到几百万） × 4 次矩阵乘</td>
+					<td>每个顶点都得算</td>
+			</tr>
+	</tbody>
+</table>
+<p>差三到四个数量级。所以<strong>骨骼层级求值留在 CPU（要跑游戏逻辑、要读动画曲线），
+顶点混合赶去 GPU</strong>——这个分工三家完全一致。</p>
+<h2 id="三最小可抄的实现">三、最小可抄的实现<a hidden class="anchor" aria-hidden="true" href="#三最小可抄的实现">#</a></h2>
+<p>抛开引擎，这件事的全部核心代码不到 20 行。</p>
+<p><strong>CPU 侧：把骨骼层级算成蒙皮矩阵</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">compute_skin_matrices</span><span class="p">(</span><span class="n">skeleton</span><span class="p">,</span> <span class="n">pose</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;skeleton: 父索引 + 逆绑定矩阵；pose: 每个骨骼的局部变换&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">global_pose</span> <span class="o">=</span> <span class="p">[</span><span class="kc">None</span><span class="p">]</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">skeleton</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">skeleton</span><span class="o">.</span><span class="n">topo_order</span><span class="p">():</span>          <span class="c1"># 保证父先算</span>
+</span></span><span class="line"><span class="cl">        <span class="n">p</span> <span class="o">=</span> <span class="n">skeleton</span><span class="o">.</span><span class="n">parent</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">        <span class="n">global_pose</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">pose</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">if</span> <span class="n">p</span> <span class="o">&lt;</span> <span class="mi">0</span>
+</span></span><span class="line"><span class="cl">                          <span class="k">else</span> <span class="n">global_pose</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">@</span> <span class="n">pose</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">    <span class="c1"># 每帧真正要上传的就是这个</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="p">[</span><span class="n">global_pose</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">@</span> <span class="n">skeleton</span><span class="o">.</span><span class="n">inverse_bind</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">            <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">skeleton</span><span class="p">))]</span>
+</span></span></code></pre></div><p>注意 <code>global_pose[p] @ pose[i]</code> 的顺序：是父的全局变换<strong>左乘</strong>本骨的局部变换。</p>
+<p><strong>GPU 侧：每顶点混合</strong>（GLSL）</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-glsl" data-lang="glsl"><span class="line"><span class="cl"><span class="c1">// skin[]：蒙皮矩阵数组；b：4 个骨骼索引；w：4 个归一化权重</span>
+</span></span><span class="line"><span class="cl"><span class="n">mat4</span> <span class="n">m</span> <span class="o">=</span> <span class="n">w</span><span class="p">.</span><span class="n">x</span> <span class="o">*</span> <span class="n">skin</span><span class="p">[</span><span class="n">b</span><span class="p">.</span><span class="n">x</span><span class="p">]</span> <span class="o">+</span> <span class="n">w</span><span class="p">.</span><span class="n">y</span> <span class="o">*</span> <span class="n">skin</span><span class="p">[</span><span class="n">b</span><span class="p">.</span><span class="n">y</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">       <span class="o">+</span> <span class="n">w</span><span class="p">.</span><span class="n">z</span> <span class="o">*</span> <span class="n">skin</span><span class="p">[</span><span class="n">b</span><span class="p">.</span><span class="n">z</span><span class="p">]</span> <span class="o">+</span> <span class="n">w</span><span class="p">.</span><span class="n">w</span> <span class="o">*</span> <span class="n">skin</span><span class="p">[</span><span class="n">b</span><span class="p">.</span><span class="n">w</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">out_position</span> <span class="o">=</span> <span class="p">(</span><span class="n">m</span> <span class="o">*</span> <span class="k">vec4</span><span class="p">(</span><span class="n">in_position</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)).</span><span class="n">xyz</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">out_normal</span>   <span class="o">=</span> <span class="n">normalize</span><span class="p">(</span><span class="n">mat3</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="o">*</span> <span class="n">in_normal</span><span class="p">);</span>   <span class="c1">// ← 注意：没有逆转置</span>
+</span></span><span class="line"><span class="cl"><span class="n">out_tangent</span>  <span class="o">=</span> <span class="n">normalize</span><span class="p">(</span><span class="n">mat3</span><span class="p">(</span><span class="n">m</span><span class="p">)</span> <span class="o">*</span> <span class="n">in_tangent</span><span class="p">);</span>
+</span></span></code></pre></div><p>两处最容易写错的地方：</p>
+<p><strong>① 矩阵顺序。</strong> $B M^{-1}$ 是对的，$M^{-1} B$ 是错的。差别在<strong>这个逆矩阵是&quot;进骨骼空间&quot;还是&quot;出骨骼空间&quot;</strong>。
+用 2 骨骼的具体例子验一下：顶点在 $p$、骨骼 $i$ 的绑定变换是 $M_i$，
+那 $M_i^{-1}p$ 给出的是&quot;这个顶点在骨骼坐标系里的位置&quot;，
+再被 $B_i$ 搬回世界——这是对的。</p>
+<p><strong>② 权重不是&quot;几个位置的加权平均&quot;这么简单。</strong> 严格写是
+$\sum w_i (S_i p)$ ——<strong>先把顶点变换到几个位置，再插值</strong>。
+但因为它对 $p$ 是线性的，可以等价地先算矩阵加权和 $\left(\sum w_i S_i\right) p$。
+shader 里都是后者（省 3 次矩阵-向量乘）。<strong>两种写法数学上等价，但只有在线性混合下等价</strong>——
+一旦换成双四元数，就不能这么交换了。</p>
+<h2 id="四三个引擎怎么落地">四、三个引擎怎么落地<a hidden class="anchor" aria-hidden="true" href="#四三个引擎怎么落地">#</a></h2>
+<p>先给结论性的对照表（细节在下一节）：</p>
+<table>
+	<thead>
+			<tr>
+					<th></th>
+					<th>UE 5.8</th>
+					<th>Unity 2022.3 LTS</th>
+					<th>Godot（RD 渲染器）</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>默认蒙皮位置</td>
+					<td><strong>GPUSkinCache 的 compute</strong></td>
+					<td><strong>引擎侧 compute</strong></td>
+					<td><strong><code>skeleton.glsl</code> 的 compute</strong></td>
+			</tr>
+			<tr>
+					<td>场景 VS 里有没有蒙皮</td>
+					<td>有，但要显式用 GPUSkin 顶点工厂</td>
+					<td><strong>没有</strong>（<code>UnityCG.cginc</code> 里 <code>skin</code> 0 命中）</td>
+					<td><strong>没有</strong>（VS 里只声明了属性，实际只给粒子拖尾用）</td>
+			</tr>
+			<tr>
+					<td>备选路径</td>
+					<td>纯 CPU 蒙皮</td>
+					<td>顶点着色器蒙皮宏（老式）</td>
+					<td>GLES3 走 transform feedback + 骨骼纹理</td>
+			</tr>
+			<tr>
+					<td>每顶点骨骼数</td>
+					<td>4，可再加一组 4（上限 12）</td>
+					<td>1 / 2 / 4，按 <code>BonesPerVertex</code> 分支</td>
+					<td>4 或 8</td>
+			</tr>
+			<tr>
+					<td>骨骼矩阵</td>
+					<td>3×float4/骨（转置打包）</td>
+					<td>compute 用 <code>StructuredBuffer&lt;float4x4&gt;</code>；VS 用 <code>float4 Bones[N*3]</code></td>
+					<td>3×vec4/骨（storage buffer）</td>
+			</tr>
+			<tr>
+					<td>线程组</td>
+					<td><code>[numthreads(64,1,1)]</code></td>
+					<td><code>[numthreads(64, 1, 1)]</code></td>
+					<td><code>local_size_x = 64</code></td>
+			</tr>
+			<tr>
+					<td>法线逆转置</td>
+					<td>无</td>
+					<td>无</td>
+					<td>无</td>
+			</tr>
+			<tr>
+					<td>运行时归一化权重</td>
+					<td>否</td>
+					<td><strong>2 骨分支归一化，4 骨分支不归一化</strong></td>
+					<td>否</td>
+			</tr>
+	</tbody>
+</table>
+<h3 id="ue4-骨混合的完整函数体">UE：4 骨混合的完整函数体<a hidden class="anchor" aria-hidden="true" href="#ue4-骨混合的完整函数体">#</a></h3>
+<p>真正做混合的是 <code>ComputeBoneMatrixWithLimitedInfluences</code>
+（<code>Engine/Shaders/Private/GpuSkinCommon.ush:230</code>）：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-hlsl" data-lang="hlsl"><span class="line"><span class="cl"><span class="n">FBoneMatrix</span> <span class="n">ComputeBoneMatrixWithLimitedInfluences</span><span class="p">(</span><span class="n">FComputeBoneMatrixInputs</span> <span class="n">Inputs</span><span class="p">,</span> <span class="n">FGPUSkinIndexAndWeight</span> <span class="n">In</span><span class="p">,</span> <span class="kt">bool</span> <span class="n">bExtraInfluences</span> <span class="o">=</span> <span class="n">GPUSKIN_USE_EXTRA_INFLUENCES</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="n">FBoneMatrix</span>
+</span></span><span class="line"><span class="cl">	<span class="n">BoneMatrix</span> <span class="o">=</span> <span class="n">In</span><span class="p">.</span><span class="n">BlendWeights</span><span class="p">.</span><span class="n">x</span> <span class="o">*</span> <span class="n">LoadSkinningBoneTransform</span><span class="p">(</span><span class="n">Inputs</span><span class="p">,</span> <span class="n">In</span><span class="p">.</span><span class="n">BlendIndices</span><span class="p">.</span><span class="n">x</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="n">BoneMatrix</span> <span class="o">+=</span> <span class="n">In</span><span class="p">.</span><span class="n">BlendWeights</span><span class="p">.</span><span class="n">y</span> <span class="o">*</span> <span class="n">LoadSkinningBoneTransform</span><span class="p">(</span><span class="n">Inputs</span><span class="p">,</span> <span class="n">In</span><span class="p">.</span><span class="n">BlendIndices</span><span class="p">.</span><span class="n">y</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="cp">#if !GPUSKIN_LIMIT_2BONE_INFLUENCES</span>
+</span></span><span class="line"><span class="cl">	<span class="n">BoneMatrix</span> <span class="o">+=</span> <span class="n">In</span><span class="p">.</span><span class="n">BlendWeights</span><span class="p">.</span><span class="n">z</span> <span class="o">*</span> <span class="n">LoadSkinningBoneTransform</span><span class="p">(</span><span class="n">Inputs</span><span class="p">,</span> <span class="n">In</span><span class="p">.</span><span class="n">BlendIndices</span><span class="p">.</span><span class="n">z</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="n">BoneMatrix</span> <span class="o">+=</span> <span class="n">In</span><span class="p">.</span><span class="n">BlendWeights</span><span class="p">.</span><span class="n">w</span> <span class="o">*</span> <span class="n">LoadSkinningBoneTransform</span><span class="p">(</span><span class="n">Inputs</span><span class="p">,</span> <span class="n">In</span><span class="p">.</span><span class="n">BlendIndices</span><span class="p">.</span><span class="n">w</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">	<span class="k">if</span> <span class="p">(</span><span class="n">bExtraInfluences</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">	<span class="p">{</span>
+</span></span><span class="line"><span class="cl">		<span class="n">BoneMatrix</span> <span class="o">+=</span> <span class="n">In</span><span class="p">.</span><span class="n">BlendWeights2</span><span class="p">.</span><span class="n">x</span> <span class="o">*</span> <span class="n">LoadSkinningBoneTransform</span><span class="p">(</span><span class="n">Inputs</span><span class="p">,</span> <span class="n">In</span><span class="p">.</span><span class="n">BlendIndices2</span><span class="p">.</span><span class="n">x</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">		<span class="c1">// …再累加余下三根</span>
+</span></span><span class="line"><span class="cl">	<span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="cp">#endif</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="n">BoneMatrix</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>顶点工厂拿到这个混合好的矩阵后，只做一次乘法（<code>GpuSkinVertexFactory.ush:581</code>）：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-hlsl" data-lang="hlsl"><span class="line"><span class="cl"><span class="kt">float3</span> <span class="n">SkinPosition</span><span class="p">(</span> <span class="n">FVertexFactoryInput</span> <span class="n">Input</span><span class="p">,</span> <span class="n">FVertexFactoryIntermediates</span> <span class="n">Intermediates</span> <span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// …</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// Note the use of mul(Matrix,Vector), bone matrices are stored transposed</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// for tighter packing.</span>
+</span></span><span class="line"><span class="cl">	<span class="n">Position</span> <span class="o">=</span> <span class="nb">mul</span><span class="p">(</span><span class="n">Intermediates</span><span class="p">.</span><span class="n">BlendMatrix</span><span class="p">,</span> <span class="kt">float4</span><span class="p">(</span><span class="n">Position</span><span class="p">,</span> <span class="mi">1</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">	<span class="k">return</span> <span class="n">Position</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p>那句注释值得单说：<strong>骨骼矩阵是转置存的</strong>，为了打包更紧。
+UE 每根骨骼存 3 个 <code>float4</code>（3×4 而不是 4×4）——4×4 的第四行永远是 <code>(0,0,0,1)</code>，没必要存。
+Unity 的 <code>float4 Bones[N*3]</code> 和 Godot 的 3 个 <code>vec4</code> 都是同一个套路。<strong>三家在这件事上完全一致。</strong></p>
+<p>GPU 蒙皮走的是 <code>GpuSkinCacheComputeShader.usf:194</code>：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-hlsl" data-lang="hlsl"><span class="line"><span class="cl"><span class="p">[</span><span class="nd">numthreads</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">)]</span>
+</span></span><span class="line"><span class="cl"><span class="kt">void</span> <span class="n">SkinCacheUpdateBatchCS</span><span class="p">(</span><span class="kt">uint3</span> <span class="n">GroupID</span> <span class="o">:</span> <span class="nd">SV_GroupID</span><span class="p">,</span> <span class="kt">uint3</span> <span class="n">DispatchThreadID</span> <span class="o">:</span> <span class="nd">SV_DispatchThreadID</span><span class="p">,</span> <span class="err">…</span><span class="p">)</span>
+</span></span></code></pre></div><p>写回两个 UAV——位置（每顶点 3 个 float）与切线（每顶点 2 个 SNORM float4）：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-hlsl" data-lang="hlsl"><span class="line"><span class="cl">	<span class="n">PositionBufferUAV</span><span class="p">[</span><span class="n">OutputOffset</span> <span class="o">*</span> <span class="mi">3</span> <span class="o">+</span> <span class="mo">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">SPos</span><span class="p">.</span><span class="n">x</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">	<span class="n">PositionBufferUAV</span><span class="p">[</span><span class="n">OutputOffset</span> <span class="o">*</span> <span class="mi">3</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="n">SPos</span><span class="p">.</span><span class="n">y</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">	<span class="n">PositionBufferUAV</span><span class="p">[</span><span class="n">OutputOffset</span> <span class="o">*</span> <span class="mi">3</span> <span class="o">+</span> <span class="mi">2</span><span class="p">]</span> <span class="o">=</span> <span class="n">SPos</span><span class="p">.</span><span class="n">z</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">	<span class="c1">// …</span>
+</span></span><span class="line"><span class="cl">	<span class="n">TangentBufferUAV</span><span class="p">[</span><span class="mi">2</span> <span class="o">*</span> <span class="n">OutputOffset</span> <span class="o">+</span> <span class="n">GPUSKIN_RWBUFFER_OFFSET_TANGENT_X</span><span class="p">]</span> <span class="o">=</span> <span class="n">TangentUnbias_SkinCache</span><span class="p">(</span><span class="kt">half4</span><span class="p">(</span><span class="n">TangentX</span><span class="p">,</span> <span class="n">Unpacked</span><span class="p">.</span><span class="n">TangentX</span><span class="p">.</span><span class="n">w</span><span class="p">));</span>
+</span></span><span class="line"><span class="cl">	<span class="n">TangentBufferUAV</span><span class="p">[</span><span class="mi">2</span> <span class="o">*</span> <span class="n">OutputOffset</span> <span class="o">+</span> <span class="n">GPUSKIN_RWBUFFER_OFFSET_TANGENT_Z</span><span class="p">]</span> <span class="o">=</span> <span class="n">TangentUnbias_SkinCache</span><span class="p">(</span><span class="kt">half4</span><span class="p">(</span><span class="n">TangentZ</span><span class="p">,</span> <span class="n">Unpacked</span><span class="p">.</span><span class="n">TangentZ</span><span class="p">.</span><span class="n">w</span><span class="p">));</span>
+</span></span></code></pre></div><p>这些缓冲区随后作为 SRV 绑给一个 passthrough 顶点工厂——<strong>对场景着色器来说，它就是普通的顶点流</strong>。
+这正是 RTR4 那句话的实现：&ldquo;UAV 存储允许复用蒙皮结果。&rdquo;</p>
+<h3 id="unity着色器里一行蒙皮代码都没有">Unity：着色器里一行蒙皮代码都没有<a hidden class="anchor" aria-hidden="true" href="#unity着色器里一行蒙皮代码都没有">#</a></h3>
+<p>这是我在核实时最意外的一条。<code>UnityCG.cginc</code>（本机 1242 行）里搜 <code>skin</code>（不区分大小写）——<strong>0 命中</strong>。
+URP 的运行时 <code>ShaderLibrary/</code>（92 个文件）也没有蒙皮实现。</p>
+<p>真正的蒙皮在引擎侧提交的 compute shader 里。
+<code>Internal-Skinning.compute</code> 有 16 个 kernel（骨骼数 1/2/4 与法线/切线各一组），核心是：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-hlsl" data-lang="hlsl"><span class="line"><span class="cl"><span class="p">[</span><span class="nd">numthreads</span><span class="p">(</span><span class="mi">64</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">)]</span>
+</span></span><span class="line"><span class="cl"><span class="kt">void</span> <span class="n">main</span><span class="p">(</span><span class="kt">uint3</span> <span class="n">threadID</span> <span class="o">:</span> <span class="nd">SV_DispatchThreadID</span><span class="p">)</span>
+</span></span></code></pre></div><p>每顶点做的事（<code>Internal-Skinning-Util.cginc</code>，4 骨分支）：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-hlsl" data-lang="hlsl"><span class="line"><span class="cl"><span class="k">const</span> <span class="kt">float4x4</span> <span class="n">blendedMatrix</span> <span class="o">=</span> <span class="n">inMatrices</span><span class="p">[</span><span class="n">si</span><span class="p">.</span><span class="n">index0</span><span class="p">]</span> <span class="o">*</span> <span class="n">si</span><span class="p">.</span><span class="n">weight0</span> <span class="o">+</span>
+</span></span><span class="line"><span class="cl">                                <span class="n">inMatrices</span><span class="p">[</span><span class="n">si</span><span class="p">.</span><span class="n">index1</span><span class="p">]</span> <span class="o">*</span> <span class="n">si</span><span class="p">.</span><span class="n">weight1</span> <span class="o">+</span>
+</span></span><span class="line"><span class="cl">                                <span class="n">inMatrices</span><span class="p">[</span><span class="n">si</span><span class="p">.</span><span class="n">index2</span><span class="p">]</span> <span class="o">*</span> <span class="n">si</span><span class="p">.</span><span class="n">weight2</span> <span class="o">+</span>
+</span></span><span class="line"><span class="cl">                                <span class="n">inMatrices</span><span class="p">[</span><span class="n">si</span><span class="p">.</span><span class="n">index3</span><span class="p">]</span> <span class="o">*</span> <span class="n">si</span><span class="p">.</span><span class="n">weight3</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">ouputVertex</span><span class="p">.</span><span class="n">pos</span>     <span class="o">=</span> <span class="nb">mul</span><span class="p">(</span><span class="n">blendedMatrix</span><span class="p">,</span> <span class="kt">float4</span><span class="p">(</span><span class="n">vPos</span><span class="p">,</span> <span class="mi">1</span><span class="p">)).</span><span class="n">xyz</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">ouputVertex</span><span class="p">.</span><span class="n">norm</span>    <span class="o">=</span> <span class="nb">mul</span><span class="p">(</span><span class="n">blendedMatrix</span><span class="p">,</span> <span class="kt">float4</span><span class="p">(</span><span class="n">vNorm</span><span class="p">,</span> <span class="mo">0</span><span class="p">)).</span><span class="n">xyz</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">ouputVertex</span><span class="p">.</span><span class="n">tang</span><span class="p">.</span><span class="n">xyz</span><span class="o">=</span> <span class="nb">mul</span><span class="p">(</span><span class="n">blendedMatrix</span><span class="p">,</span> <span class="kt">float4</span><span class="p">(</span><span class="n">vTang</span><span class="p">,</span> <span class="mo">0</span><span class="p">)).</span><span class="n">xyz</span><span class="p">;</span>
+</span></span></code></pre></div><p>和 UE 的形式<strong>完全一样</strong>，只是骨骼矩阵是 <code>StructuredBuffer&lt;float4x4&gt;</code>（没做 3×4 打包）。</p>
+<p>但 Unity <strong>还有一条老式的顶点着色器路径</strong>，就在 <code>CGIncludes/VertexShaderSkinning.cginc</code> 里。
+骨骼矩阵以 uniform 数组存在，骨数上限是常量：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-hlsl" data-lang="hlsl"><span class="line"><span class="cl"><span class="cp">#if ENABLE_VS_SKINNING &amp;&amp; !defined(SHADER_API_METAL)</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="k">const</span> <span class="kt">int</span> <span class="n">max_bone_count</span> <span class="o">=</span> <span class="mi">64</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">uniform</span> <span class="kt">float4</span> <span class="n">Bones</span><span class="p">[</span><span class="n">max_bone_count</span> <span class="o">*</span> <span class="mi">3</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl"><span class="cp">#elif ENABLE_VS_SKINNING_MORE_BONES || (ENABLE_VS_SKINNING &amp;&amp; defined(SHADER_API_METAL))</span>
+</span></span><span class="line"><span class="cl">    <span class="k">static</span> <span class="k">const</span> <span class="kt">int</span> <span class="n">max_bone_count</span> <span class="o">=</span> <span class="mi">320</span><span class="p">;</span>
+</span></span></code></pre></div><p><strong>64 还是 320，这个数字就是 RTR4 说的&quot;寄存器上限&quot;</strong>——装不下就得换回 compute 或者纹理。
+文件里还留着 <code>ENABLE_VS_SKINNING_TEX</code> 分支（骨骼矩阵走纹理），但只有一行 <code>// todo</code>，没实现。</p>
+<p>有意思的是这条路径<strong>今天还在被用</strong>：URP 的 2D 着色器就调它
+（<code>Shaders/2D/RenderAs2D-Flattening.shader:64</code>）：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-hlsl" data-lang="hlsl"><span class="line"><span class="cl"><span class="n">DO_VS_SKINNING_PARAM3</span><span class="p">(</span><span class="n">v</span><span class="p">.</span><span class="n">positionOS</span><span class="p">,</span> <span class="n">v</span><span class="p">.</span><span class="n">boneWeights</span><span class="p">,</span> <span class="n">v</span><span class="p">.</span><span class="n">boneIndices</span><span class="p">);</span>
+</span></span></code></pre></div><p>所以准确的说法不是&quot;URP 不做蒙皮&quot;，而是：<strong>URP 的 3D 着色器不做蒙皮，2D 的反而做。</strong></p>
+<p>顺便，morph target 也是 compute，而且是在<strong>蒙皮结果上原地累加</strong>
+（<code>Internal-BlendShape.compute</code>）：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-hlsl" data-lang="hlsl"><span class="line"><span class="cl"><span class="n">MeshVertex</span> <span class="n">vertex</span> <span class="o">=</span> <span class="n">FetchVert</span><span class="p">(</span><span class="n">inOutMeshVertices</span><span class="p">,</span> <span class="n">vertIndex</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="n">vertex</span><span class="p">.</span><span class="n">pos</span> <span class="o">+=</span> <span class="n">blendShapeVert</span><span class="p">.</span><span class="n">pos</span> <span class="o">*</span> <span class="n">g_Weight</span><span class="p">;</span>
+</span></span></code></pre></div><p>——这正是 RTR4 Eq 4.61 的 $M = N + \sum w_i D_i$。顺序也清楚了：
+<strong>先蒙皮，再在结果上叠加 morph 位移</strong>。</p>
+<h3 id="godot一个专职的-compute-shader">Godot：一个专职的 compute shader<a hidden class="anchor" aria-hidden="true" href="#godot一个专职的-compute-shader">#</a></h3>
+<p>RD 渲染器里<strong>没有</strong>顶点着色器蒙皮。场景着色器虽然声明了骨骼属性，但实际只给粒子拖尾用
+（<code>scene_forward_clustered.glsl:63</code>）：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-glsl" data-lang="glsl"><span class="line"><span class="cl"><span class="cp">#if defined(BONES_USED) || defined(USE_PARTICLE_TRAILS)</span>
+</span></span><span class="line"><span class="cl"><span class="n">layout</span><span class="p">(</span><span class="n">location</span> <span class="o">=</span> <span class="mi">10</span><span class="p">)</span> <span class="k">in</span> <span class="n">uvec4</span> <span class="n">bone_attrib</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="cp">#endif</span>
+</span></span></code></pre></div><p>真正的蒙皮在 <code>servers/rendering/renderer_rd/shaders/skeleton.glsl</code>——一个专职的 compute：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-glsl" data-lang="glsl"><span class="line"><span class="cl"><span class="cp">#[compute]</span>
+</span></span><span class="line"><span class="cl"><span class="cp">#version 450</span>
+</span></span><span class="line"><span class="cl"><span class="n">layout</span><span class="p">(</span><span class="n">local_size_x</span> <span class="o">=</span> <span class="mi">64</span><span class="p">,</span> <span class="n">local_size_y</span> <span class="o">=</span> <span class="mi">1</span><span class="p">,</span> <span class="n">local_size_z</span> <span class="o">=</span> <span class="mi">1</span><span class="p">)</span> <span class="k">in</span><span class="p">;</span>
+</span></span></code></pre></div><p>3D 的混合（<code>:248</code> 起，含 8 骨分支）：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-glsl" data-lang="glsl"><span class="line"><span class="cl"><span class="n">uint</span> <span class="n">skin_offset</span> <span class="o">=</span> <span class="n">params</span><span class="p">.</span><span class="n">skin_stride</span> <span class="o">*</span> <span class="n">index</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">uvec2</span> <span class="n">bones</span> <span class="o">=</span> <span class="n">uvec2</span><span class="p">(</span><span class="n">src_bone_weights</span><span class="p">.</span><span class="n">data</span><span class="p">[</span><span class="n">skin_offset</span> <span class="o">+</span> <span class="mo">0</span><span class="p">],</span> <span class="n">src_bone_weights</span><span class="p">.</span><span class="n">data</span><span class="p">[</span><span class="n">skin_offset</span> <span class="o">+</span> <span class="mi">1</span><span class="p">]);</span>
+</span></span><span class="line"><span class="cl"><span class="n">uvec2</span> <span class="n">bones_01</span> <span class="o">=</span> <span class="n">uvec2</span><span class="p">(</span><span class="n">bones</span><span class="p">.</span><span class="n">x</span> <span class="o">&amp;</span> <span class="mh">0xFFFF</span><span class="p">,</span> <span class="n">bones</span><span class="p">.</span><span class="n">x</span> <span class="o">&gt;&gt;</span> <span class="mi">16</span><span class="p">)</span> <span class="o">*</span> <span class="mi">3</span><span class="p">;</span> <span class="c1">//pre-add xform offset</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// …</span>
+</span></span><span class="line"><span class="cl"><span class="n">mat4</span> <span class="n">m</span> <span class="o">=</span> <span class="n">mat4</span><span class="p">(</span><span class="n">bone_transforms</span><span class="p">.</span><span class="n">data</span><span class="p">[</span><span class="n">bones_01</span><span class="p">.</span><span class="n">x</span><span class="p">],</span> <span class="n">bone_transforms</span><span class="p">.</span><span class="n">data</span><span class="p">[</span><span class="n">bones_01</span><span class="p">.</span><span class="n">x</span> <span class="o">+</span> <span class="mi">1</span><span class="p">],</span>
+</span></span><span class="line"><span class="cl">              <span class="n">bone_transforms</span><span class="p">.</span><span class="n">data</span><span class="p">[</span><span class="n">bones_01</span><span class="p">.</span><span class="n">x</span> <span class="o">+</span> <span class="mi">2</span><span class="p">],</span> <span class="k">vec4</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">))</span> <span class="o">*</span> <span class="n">weights_01</span><span class="p">.</span><span class="n">x</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">m</span> <span class="o">+=</span> <span class="n">mat4</span><span class="p">(</span><span class="n">bone_transforms</span><span class="p">.</span><span class="n">data</span><span class="p">[</span><span class="n">bones_01</span><span class="p">.</span><span class="n">y</span><span class="p">],</span> <span class="err">…</span><span class="p">)</span> <span class="o">*</span> <span class="n">weights_01</span><span class="p">.</span><span class="n">y</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="c1">// …</span>
+</span></span></code></pre></div><p>结尾那几行注意一下<strong>乘法方向</strong>：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-glsl" data-lang="glsl"><span class="line"><span class="cl"><span class="c1">//reverse order because its transposed</span>
+</span></span><span class="line"><span class="cl"><span class="n">vertex</span> <span class="o">=</span> <span class="p">(</span><span class="k">vec4</span><span class="p">(</span><span class="n">vertex</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">*</span> <span class="n">m</span><span class="p">).</span><span class="n">xyz</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="n">normal</span> <span class="o">=</span> <span class="n">normalize</span><span class="p">((</span><span class="k">vec4</span><span class="p">(</span><span class="n">normal</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span> <span class="o">*</span> <span class="n">m</span><span class="p">).</span><span class="n">xyz</span><span class="p">);</span>
+</span></span></code></pre></div><p>是<strong>行向量右乘</strong>，因为矩阵按转置存的——和 UE 那句注释说的是同一件事，只是写法相反。</p>
+<p>dispatch 在 <code>mesh_storage.cpp:1283</code>，每个顶点一个线程：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">RD</span><span class="o">::</span><span class="n">get_singleton</span><span class="p">()</span><span class="o">-&gt;</span><span class="n">compute_list_dispatch_threads</span><span class="p">(</span><span class="n">compute_list</span><span class="p">,</span> <span class="n">push_constant</span><span class="p">.</span><span class="n">vertex_count</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="mi">1</span><span class="p">);</span>
+</span></span></code></pre></div><p><strong>跨平台</strong>这条线 Godot 分得最清楚：RD（Forward+/Mobile）走 compute，
+而 GLES3（Compatibility）走的是 <strong>transform feedback + 骨骼矩阵纹理</strong>
+（<code>drivers/gles3/shaders/skeleton.glsl</code> 用 <code>texelFetch(skeleton_texture, ivec2(m % 256u, m / 256u), 0)</code>，
+纹理宽固定 256）。这是&quot;移动端不能假定有 compute&quot;时代的遗产，今天仍然健在。</p>
+<h2 id="五只有翻源码才知道的五件事">五、只有翻源码才知道的五件事<a hidden class="anchor" aria-hidden="true" href="#五只有翻源码才知道的五件事">#</a></h2>
+<p><strong>① 三家都不在场景顶点着色器里蒙皮。</strong></p>
+<p>这不是巧合，而是同一个性能判断的必然结果：顶点数比骨骼数大几个数量级，
+&ldquo;每帧算一遍写回顶点缓冲&quot;比&quot;每次绘制都在 VS 里重算&quot;省——尤其是同一个网格被多个 pass
+（阴影、深度、GBuffer、速度）画的时候，蒙皮只算一次，后面全是读。</p>
+<p>这也解释了几个平时会遇到的现成现象：</p>
+<pre><code>UE      为什么能看到 GPUSkinCache 的独立统计项（它是个独立的 pass，不是绘制的一部分）
+Unity   为什么 MeshDeformation 要分三档（CPU / GPU / GPU Batched）来权衡 dispatch 开销
+Godot   为什么 profiler 里能看到 compute 项，且 GLES3 后端行为不一样
+</code></pre>
+<p><strong>② 法线不做逆转置。</strong></p>
+<p>RTR4 §4.4 明说骨骼被拉伸压扁时可能需要 $M^{-\mathsf T}$。但三家都没做。
+实测 UE 的三个蒙皮文件里 <code>InverseTranspose</code> 出现 0 次；</p>
+<p><strong>为什么会这样？</strong> 因为骨骼变换绝大多数时候是&quot;旋转 + 平移&rdquo;（刚体），
+非均匀缩放在骨骼动画里很少见——通常只有美术手动拉过骨骼长度，或者某些夸张形变才会出现。
+每顶点做一次逆转置的代价不值，所以<strong>规则留着、执行权交给使用者</strong>。
+真出现拉伸变形时，正确做法是在导入/导出阶段把缩放烘进绑定姿势，而不是在 shader 里补救。</p>
+<p><strong>③ 权重不在运行时重新归一化——除了 Unity 的 2 骨分支。</strong></p>
+<p>UE 的 <code>GetBlendIndicesAndWeights</code> 只做 <code>UnpackRGBA8</code>（÷255）和 <code>UnpackUnorm2x16</code>（÷65535）；
+Godot 的 compute 只有加权求和，没有除以权重和。但 Unity 的顶点蒙皮宏里有一个例外：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-hlsl" data-lang="hlsl"><span class="line"><span class="cl"><span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">BonesPerVertex</span> <span class="o">==</span> <span class="mi">2</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// assume first two bone weights should have non-zero sum</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">float</span> <span class="n">weight1</span> <span class="o">=</span> <span class="n">boneWeights_in</span><span class="p">.</span><span class="n">x</span> <span class="o">/</span> <span class="p">(</span><span class="n">boneWeights_in</span><span class="p">.</span><span class="n">x</span> <span class="o">+</span> <span class="n">boneWeights_in</span><span class="p">.</span><span class="n">y</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">localToWorldMatrix</span> <span class="o">=</span> <span class="n">GET_MATRIX</span><span class="p">(</span><span class="n">boneIndices_in</span><span class="p">.</span><span class="n">x</span><span class="p">)</span> <span class="o">*</span> <span class="n">weight1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">localToWorldMatrix</span> <span class="o">+=</span> <span class="n">GET_MATRIX</span><span class="p">(</span><span class="n">boneIndices_in</span><span class="p">.</span><span class="n">y</span><span class="p">)</span> <span class="o">*</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">weight1</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="k">else</span> <span class="k">if</span> <span class="p">(</span><span class="n">BonesPerVertex</span> <span class="o">==</span> <span class="mi">4</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="p">{</span>
+</span></span><span class="line"><span class="cl">    <span class="n">localToWorldMatrix</span> <span class="o">=</span> <span class="n">GET_MATRIX</span><span class="p">(</span><span class="n">boneIndices_in</span><span class="p">.</span><span class="n">x</span><span class="p">)</span> <span class="o">*</span> <span class="n">boneWeights_in</span><span class="p">.</span><span class="n">x</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">localToWorldMatrix</span> <span class="o">+=</span> <span class="n">GET_MATRIX</span><span class="p">(</span><span class="n">boneIndices_in</span><span class="p">.</span><span class="n">y</span><span class="p">)</span> <span class="o">*</span> <span class="n">boneWeights_in</span><span class="p">.</span><span class="n">y</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">// …直接加权，没有归一化</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></div><p><strong>同一个文件里，2 骨分支归一化、4 骨分支不归一化</strong>——注释写的是&quot;假定前两个权重之和不为零&quot;，
+所以它是个<strong>防御性除法</strong>（避免 0 除），不是通用归一化。这也说明引擎作者清楚权重要求和为 1，
+只是把这件事交给了导入器。</p>
+<p><strong>④ UE 的 skin cache key 是「骨骼缓冲指针 + 版本号」，不是变换的哈希。</strong></p>
+<p><code>GPUSkinCache</code> 判断&quot;这个网格需不需要重新蒙皮&quot;，靠的是
+<code>(骨骼缓冲对象指针, RevisionNumber)</code> 这个二元组，而不是比较变换数值。
+代价是：骨骼缓冲被重新分配时会误判（指针变了但内容没变），
+所以代码里专门有个 <code>UpdatePreviousBoneBuffer</code> 去修正指针。</p>
+<p><strong>为什么这样更快</strong>：比较几百个骨骼的矩阵哈希要读几百 KB；比较一个指针和一个计数器是常数时间。
+<strong>蒙皮的失效判断发生在每帧、每个网格上</strong>，所以这个选择一点都不奇怪。</p>
+<p><strong>⑤ Godot 把 bind pose 存成「逆」。</strong></p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="n">skin</span><span class="o">-&gt;</span><span class="n">set_bind_pose</span><span class="p">(</span><span class="n">i</span><span class="p">,</span> <span class="n">skin</span><span class="o">-&gt;</span><span class="n">get_bind_pose</span><span class="p">(</span><span class="n">i</span><span class="p">).</span><span class="n">affine_inverse</span><span class="p">());</span>
+</span></span></code></pre></div><p>于是上传时直接 <code>global_pose * get_bind_pose(i)</code> 就得到蒙皮矩阵（见第一节那段代码），
+<strong>省掉了一次运行时求逆</strong>。这也解释了为什么读 Godot 代码时会困惑&quot;这个 bind_pose 到底是哪个方向&quot;——
+它存的是 $M^{-1}$，不是 $M$。</p>
+<h2 id="小结">小结<a hidden class="anchor" aria-hidden="true" href="#小结">#</a></h2>
+<p>三句话：</p>
+<ul>
+<li>蒙皮就是&quot;把绑定姿势下的顶点搬到当前姿势下&quot;：$u = \sum w_i B_i M_i^{-1} p$，每帧变的只有 $B_i$</li>
+<li><strong>&ldquo;谁在算&quot;有三个层次，三家的默认路径都是&quot;独立 compute + 写回顶点缓冲&rdquo;</strong>，
+场景顶点着色器只读结果——这解释了 UE 的 SkinCache 统计、Unity 的三档模式、Godot 的 compute profiler 项</li>
+<li>教科书里的规则（法线逆转置、权重归一化）在工业实现里被两种不同方式绕过了：
+<strong>该做的留给使用者和导入器，运行时只做必要的事</strong></li>
+</ul>
+<p>行动点：下次你看到角色的膝关节处塌陷、或者某个网格在蒙皮时莫名变细，
+先算一下<strong>这个部位的权重是不是接近 0.5</strong>——因为体积损失最大正是发生在&quot;一半一半&quot;的地方
+（$\text{retention} = \sqrt{1-2w(1-w)(1-\cos\varphi)}$）。
+那不是美术权重刷错了，是 LBS 本身的数学。</p>
+<hr>
+<h2 id="附录一可运行的验证脚本">附录一：可运行的验证脚本<a hidden class="anchor" aria-hidden="true" href="#附录一可运行的验证脚本">#</a></h2>
+<p>纯 Python 标准库。就算法本身、以及第一篇里那个&quot;法线到底该用哪个矩阵&quot;的问题，
+都能在这里独立复现：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl"><span class="ch">#!/usr/bin/env python3</span>
+</span></span><span class="line"><span class="cl"><span class="s2">&#34;&#34;&#34;骨骼蒙皮核心：蒙皮矩阵、LBS 的体积损失、DQS 为什么没有损失。纯标准库。&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl"><span class="kn">import</span> <span class="nn">math</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># ── 4x4 矩阵（列主序，和 OpenGL 一致） ──</span>
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">mat_identity</span><span class="p">():</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">mat_translate</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="n">m</span> <span class="o">=</span> <span class="n">mat_identity</span><span class="p">();</span> <span class="n">m</span><span class="p">[</span><span class="mi">12</span><span class="p">],</span> <span class="n">m</span><span class="p">[</span><span class="mi">13</span><span class="p">],</span> <span class="n">m</span><span class="p">[</span><span class="mi">14</span><span class="p">]</span> <span class="o">=</span> <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">;</span> <span class="k">return</span> <span class="n">m</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">mat_rotate_x</span><span class="p">(</span><span class="n">a</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="n">c</span><span class="p">,</span> <span class="n">s</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">a</span><span class="p">),</span> <span class="n">math</span><span class="o">.</span><span class="n">sin</span><span class="p">(</span><span class="n">a</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="p">[</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span><span class="n">c</span><span class="p">,</span><span class="n">s</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span><span class="o">-</span><span class="n">s</span><span class="p">,</span><span class="n">c</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">1</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">mat_mul</span><span class="p">(</span><span class="n">A</span><span class="p">,</span> <span class="n">B</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="p">[</span><span class="nb">sum</span><span class="p">(</span><span class="n">A</span><span class="p">[</span><span class="n">k</span><span class="o">*</span><span class="mi">4</span><span class="o">+</span><span class="n">i</span><span class="p">]</span><span class="o">*</span><span class="n">B</span><span class="p">[</span><span class="n">j</span><span class="o">*</span><span class="mi">4</span><span class="o">+</span><span class="n">k</span><span class="p">]</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">))</span> <span class="k">for</span> <span class="n">j</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">4</span><span class="p">)]</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">mat_apply</span><span class="p">(</span><span class="n">M</span><span class="p">,</span> <span class="n">p</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;列主序：(行 r, 列 c) 存在 M[c*4+r]&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span> <span class="o">=</span> <span class="n">p</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">M</span><span class="p">[</span><span class="mi">0</span><span class="o">*</span><span class="mi">4</span><span class="o">+</span><span class="n">i</span><span class="p">]</span><span class="o">*</span><span class="n">x</span> <span class="o">+</span> <span class="n">M</span><span class="p">[</span><span class="mi">1</span><span class="o">*</span><span class="mi">4</span><span class="o">+</span><span class="n">i</span><span class="p">]</span><span class="o">*</span><span class="n">y</span> <span class="o">+</span> <span class="n">M</span><span class="p">[</span><span class="mi">2</span><span class="o">*</span><span class="mi">4</span><span class="o">+</span><span class="n">i</span><span class="p">]</span><span class="o">*</span><span class="n">z</span> <span class="o">+</span> <span class="n">M</span><span class="p">[</span><span class="mi">3</span><span class="o">*</span><span class="mi">4</span><span class="o">+</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">mat_inverse_rigid</span><span class="p">(</span><span class="n">M</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;刚体矩阵求逆：旋转转置 + 平移取负（比通用求逆快也稳）&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">R</span> <span class="o">=</span> <span class="p">[[</span><span class="n">M</span><span class="p">[</span><span class="n">c</span><span class="o">*</span><span class="mi">4</span><span class="o">+</span><span class="n">r</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span>      <span class="c1"># 取 3x3</span>
+</span></span><span class="line"><span class="cl">    <span class="n">t</span> <span class="o">=</span> <span class="p">(</span><span class="n">M</span><span class="p">[</span><span class="mi">12</span><span class="p">],</span> <span class="n">M</span><span class="p">[</span><span class="mi">13</span><span class="p">],</span> <span class="n">M</span><span class="p">[</span><span class="mi">14</span><span class="p">])</span>
+</span></span><span class="line"><span class="cl">    <span class="n">Rt</span> <span class="o">=</span> <span class="p">[[</span><span class="n">R</span><span class="p">[</span><span class="n">c</span><span class="p">][</span><span class="n">r</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">)]</span>      <span class="c1"># 转置</span>
+</span></span><span class="line"><span class="cl">    <span class="n">nt</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="o">-</span><span class="nb">sum</span><span class="p">(</span><span class="n">Rt</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="n">c</span><span class="p">]</span><span class="o">*</span><span class="n">t</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span> <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="n">out</span> <span class="o">=</span> <span class="n">mat_identity</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span> <span class="n">r</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">        <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">3</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">            <span class="n">out</span><span class="p">[</span><span class="n">c</span><span class="o">*</span><span class="mi">4</span><span class="o">+</span><span class="n">r</span><span class="p">]</span> <span class="o">=</span> <span class="n">Rt</span><span class="p">[</span><span class="n">r</span><span class="p">][</span><span class="n">c</span><span class="p">]</span>
+</span></span><span class="line"><span class="cl">    <span class="n">out</span><span class="p">[</span><span class="mi">12</span><span class="p">],</span> <span class="n">out</span><span class="p">[</span><span class="mi">13</span><span class="p">],</span> <span class="n">out</span><span class="p">[</span><span class="mi">14</span><span class="p">]</span> <span class="o">=</span> <span class="n">nt</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">out</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># ── 蒙皮矩阵：S = B · M⁻¹ ──</span>
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">skin_matrix</span><span class="p">(</span><span class="n">global_pose</span><span class="p">,</span> <span class="n">inverse_bind</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">mat_mul</span><span class="p">(</span><span class="n">global_pose</span><span class="p">,</span> <span class="n">inverse_bind</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="c1"># ── LBS：半径保留率 ──</span>
+</span></span><span class="line"><span class="cl"><span class="k">def</span> <span class="nf">lbs_retention</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">phi</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="s2">&#34;&#34;&#34;两个相差 phi 的旋转、权重 w 混合后，半径的保留比例&#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">math</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="mi">2</span><span class="o">*</span><span class="n">w</span><span class="o">*</span><span class="p">(</span><span class="mi">1</span><span class="o">-</span><span class="n">w</span><span class="p">)</span><span class="o">*</span><span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">phi</span><span class="p">))))</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="s2">&#34;=== ① 蒙皮矩阵就是 B·M⁻¹（用一个绕 X 轴转 90° 的骨骼验） ===&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">M</span>      <span class="o">=</span> <span class="n">mat_rotate_x</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>                        <span class="c1"># 绑定姿势：单位变换</span>
+</span></span><span class="line"><span class="cl"><span class="n">B</span>      <span class="o">=</span> <span class="n">mat_rotate_x</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="o">/</span><span class="mi">2</span><span class="p">)</span>                <span class="c1"># 当前姿势：转 90°</span>
+</span></span><span class="line"><span class="cl"><span class="n">Minv</span>   <span class="o">=</span> <span class="n">mat_inverse_rigid</span><span class="p">(</span><span class="n">M</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">S</span>      <span class="o">=</span> <span class="n">skin_matrix</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">Minv</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">p</span>      <span class="o">=</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;  顶点 </span><span class="si">{</span><span class="n">p</span><span class="si">}</span><span class="s2"> 经蒙皮矩阵 → </span><span class="si">{</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">v</span><span class="p">,</span><span class="mi">6</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">mat_apply</span><span class="p">(</span><span class="n">S</span><span class="p">,</span> <span class="n">p</span><span class="p">))</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;  直接用 B 作用      → </span><span class="si">{</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">v</span><span class="p">,</span><span class="mi">6</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">mat_apply</span><span class="p">(</span><span class="n">B</span><span class="p">,</span> <span class="n">p</span><span class="p">))</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="s2">&#34;  （绑定姿势是单位变换，所以 M⁻¹=I，两者相同）&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="s2">&#34;</span><span class="se">\n</span><span class="s2">=== ② 绑定姿势非平凡时，先把顶点送进骨骼空间 ===&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">M2</span>    <span class="o">=</span> <span class="n">mat_translate</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>                             <span class="c1"># 骨骼装在 (1,0,0)</span>
+</span></span><span class="line"><span class="cl"><span class="n">B2</span>    <span class="o">=</span> <span class="n">mat_mul</span><span class="p">(</span><span class="n">mat_translate</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">),</span> <span class="n">mat_rotate_x</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">pi</span><span class="o">/</span><span class="mi">2</span><span class="p">))</span>  <span class="c1"># 绕「自己的原点」转 90°</span>
+</span></span><span class="line"><span class="cl"><span class="n">Minv2</span> <span class="o">=</span> <span class="n">mat_inverse_rigid</span><span class="p">(</span><span class="n">M2</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">S2</span>    <span class="o">=</span> <span class="n">skin_matrix</span><span class="p">(</span><span class="n">B2</span><span class="p">,</span> <span class="n">Minv2</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">p2</span>    <span class="o">=</span> <span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">,</span> <span class="mf">0.0</span><span class="p">)</span>          <span class="c1"># 骨骼原点正上方 1 处</span>
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;  顶点 </span><span class="si">{</span><span class="n">p2</span><span class="si">}</span><span class="s2"> 在骨骼坐标系里 = </span><span class="si">{</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">v</span><span class="p">,</span><span class="mi">6</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">mat_apply</span><span class="p">(</span><span class="n">Minv2</span><span class="p">,</span> <span class="n">p2</span><span class="p">))</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;  经蒙皮矩阵 → </span><span class="si">{</span><span class="nb">tuple</span><span class="p">(</span><span class="nb">round</span><span class="p">(</span><span class="n">v</span><span class="p">,</span><span class="mi">6</span><span class="p">)</span> <span class="k">for</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">mat_apply</span><span class="p">(</span><span class="n">S2</span><span class="p">,</span> <span class="n">p2</span><span class="p">))</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="s2">&#34;  （绕骨骼自身原点转 90°：(1,1,0) → (1,0,1)；注意不是绕世界原点）&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="s2">&#34;</span><span class="se">\n</span><span class="s2">=== ③ LBS 的半径保留率：w=0.5 时退化为 |cos(φ/2)| ===&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;  </span><span class="si">{</span><span class="s1">&#39;φ&#39;</span><span class="si">:</span><span class="s2">&gt;6</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;w=0.5 通用式&#39;</span><span class="si">:</span><span class="s2">&gt;14</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;|cos(φ/2)|&#39;</span><span class="si">:</span><span class="s2">&gt;12</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="s1">&#39;误差&#39;</span><span class="si">:</span><span class="s2">&gt;10</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">deg</span> <span class="ow">in</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">30</span><span class="p">,</span> <span class="mi">60</span><span class="p">,</span> <span class="mi">90</span><span class="p">,</span> <span class="mi">120</span><span class="p">,</span> <span class="mi">150</span><span class="p">,</span> <span class="mi">170</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="n">phi</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="n">deg</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="n">a</span><span class="p">,</span> <span class="n">b</span> <span class="o">=</span> <span class="n">lbs_retention</span><span class="p">(</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">phi</span><span class="p">),</span> <span class="nb">abs</span><span class="p">(</span><span class="n">math</span><span class="o">.</span><span class="n">cos</span><span class="p">(</span><span class="n">phi</span><span class="o">/</span><span class="mi">2</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;  </span><span class="si">{</span><span class="n">deg</span><span class="si">:</span><span class="s2">&gt;5</span><span class="si">}</span><span class="s2">° </span><span class="si">{</span><span class="n">a</span><span class="si">:</span><span class="s2">&gt;14.6f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">b</span><span class="si">:</span><span class="s2">&gt;12.6f</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="nb">abs</span><span class="p">(</span><span class="n">a</span><span class="o">-</span><span class="n">b</span><span class="p">)</span><span class="si">:</span><span class="s2">&gt;10.1e</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="s2">&#34;</span><span class="se">\n</span><span class="s2">=== ④ 损失在两端为零、中间最大 ===&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="n">phi</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="mi">120</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="p">(</span><span class="mf">0.0</span><span class="p">,</span> <span class="mf">0.1</span><span class="p">,</span> <span class="mf">0.25</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.75</span><span class="p">,</span> <span class="mf">0.9</span><span class="p">,</span> <span class="mf">1.0</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;  w=</span><span class="si">{</span><span class="n">w</span><span class="si">:</span><span class="s2">&lt;5</span><span class="si">}</span><span class="s2"> → 保留率 </span><span class="si">{</span><span class="n">lbs_retention</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">phi</span><span class="p">)</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="nb">print</span><span class="p">(</span><span class="s2">&#34;</span><span class="se">\n</span><span class="s2">=== ⑤ 对比：DQS 混合的是旋转，半径无损 ===&#34;</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl"><span class="c1"># 两个同轴旋转（相差 phi）的对偶四元数混合 = 旋转 w·phi，半径不变</span>
+</span></span><span class="line"><span class="cl"><span class="k">for</span> <span class="n">w</span> <span class="ow">in</span> <span class="p">(</span><span class="mf">0.25</span><span class="p">,</span> <span class="mf">0.5</span><span class="p">,</span> <span class="mf">0.75</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="n">phi</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">radians</span><span class="p">(</span><span class="mi">120</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&#34;  w=</span><span class="si">{</span><span class="n">w</span><span class="si">:</span><span class="s2">&lt;5</span><span class="si">}</span><span class="s2"> → DQS 保留率 1.000000（旋转 </span><span class="si">{</span><span class="n">w</span><span class="o">*</span><span class="mi">120</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">°）&#34;</span>
+</span></span><span class="line"><span class="cl">          <span class="sa">f</span><span class="s2">&#34;   LBS 保留率 </span><span class="si">{</span><span class="n">lbs_retention</span><span class="p">(</span><span class="n">w</span><span class="p">,</span> <span class="n">phi</span><span class="p">)</span><span class="si">:</span><span class="s2">.6f</span><span class="si">}</span><span class="s2">&#34;</span><span class="p">)</span>
+</span></span></code></pre></div><p>运行输出的关键几行（下面这些是<strong>实际跑出来的</strong>，不是示意）：</p>
+<pre><code>顶点 (0.0, 1.0, 0.0) 经蒙皮矩阵 → (0.0, 0.0, 1.0)
+顶点 (1.0, 1.0, 0.0) 在骨骼坐标系里 = (0.0, 1.0, 0.0)
+顶点 (1.0, 1.0, 0.0) 经蒙皮矩阵 → (1.0, 0.0, 1.0)
+
+    φ      w=0.5 通用式   |cos(φ/2)|         误差
+    0°       1.000000     1.000000    0.0e+00
+   30°       0.965926     0.965926    0.0e+00
+   60°       0.866025     0.866025    1.1e-16
+   90°       0.707107     0.707107    0.0e+00
+  120°       0.500000     0.500000    0.0e+00
+  150°       0.258819     0.258819    1.7e-16
+  170°       0.087156     0.087156    1.7e-16
+
+w=0.0   → 保留率 1.000000
+w=0.5   → 保留率 0.500000
+w=1.0   → 保留率 1.000000
+</code></pre>
+<p><strong>最后三行就是这个毛病的全貌</strong>：权重在两端时毫无损失，在&quot;一半一半&quot;的地方损失最大。</p>
+<h2 id="附录二三引擎速查">附录二：三引擎速查<a hidden class="anchor" aria-hidden="true" href="#附录二三引擎速查">#</a></h2>
+<table>
+	<thead>
+			<tr>
+					<th>想找什么</th>
+					<th>UE 5.8</th>
+					<th>Unity 2022.3</th>
+					<th>Godot</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>每顶点混合</td>
+					<td><code>GpuSkinCommon.ush</code> <code>ComputeBoneMatrixWithLimitedInfluences</code></td>
+					<td><code>Internal-Skinning-Util.cginc</code> <code>DoSkinning</code></td>
+					<td><code>skeleton.glsl</code> 的 <code>has_skeleton</code> 分支</td>
+			</tr>
+			<tr>
+					<td>GPU 蒙皮入口</td>
+					<td><code>GpuSkinCacheComputeShader.usf</code> <code>SkinCacheUpdateBatchCS</code></td>
+					<td><code>Internal-Skinning.compute</code> <code>main</code></td>
+					<td><code>skeleton.glsl</code> <code>main</code></td>
+			</tr>
+			<tr>
+					<td>谁发 dispatch</td>
+					<td><code>GPUSkinCache.cpp</code></td>
+					<td>引擎侧（C++）</td>
+					<td><code>MeshStorage::update_mesh_instances</code></td>
+			</tr>
+			<tr>
+					<td>骨骼矩阵怎么传</td>
+					<td>3×float4/骨</td>
+					<td><code>StructuredBuffer&lt;float4x4&gt;</code></td>
+					<td>3×vec4/骨（storage buffer）</td>
+			</tr>
+			<tr>
+					<td>顶点着色器还会碰蒙皮吗</td>
+					<td>只有 GPUSkin 顶点工厂</td>
+					<td>只有老式 VS 宏（URP 2D 在用）</td>
+					<td>不碰</td>
+			</tr>
+			<tr>
+					<td>控制开关</td>
+					<td><code>r.SkinCache.*</code></td>
+					<td><code>PlayerSettings.gpuSkinning</code>（Unity 6 起是 <code>MeshDeformation</code>）</td>
+					<td>无（RD 恒走 compute）</td>
+			</tr>
+	</tbody>
+</table>
+<h2 id="附录三这条链上的常见追问">附录三：这条链上的常见追问<a hidden class="anchor" aria-hidden="true" href="#附录三这条链上的常见追问">#</a></h2>
+<pre><code>蒙皮的公式是什么
+  → u = Σ wᵢ BᵢMᵢ⁻¹ p，每帧变的只有 Bᵢ
+  → M⁻¹ 为什么要放后面（先把顶点送进骨骼自己的坐标系）
+  → 为什么三家都把 4x4 存成 3 行（第四行恒为 0,0,0,1）
+  → 权重和必须为 1 吗（是，除非配合 morph target 这类叠加式混合）
+  → 蒙皮在哪算（三个层次；三家默认都在独立 compute）
+  → 法线要不要逆转置（教科书说可能需要，三家都没做，为什么）
+  → 权重要不要每次归一化（三家都不做，契约在导入器；Unity 2 骨分支那个是防 0 除）
+  → 关节塌陷怎么救（双四元数；代价是膨胀与近反极点的处理）
+  → 移动端怎么办（Godot 给 GLES3 留了 transform feedback + 骨骼纹理那条路）
+</code></pre>
+<h2 id="参考">参考<a hidden class="anchor" aria-hidden="true" href="#参考">#</a></h2>
+<ul>
+<li>RTR4 §4.4 Vertex Blending（书内 p.84–87）：Eq 4.59、权重约束与凸包、GPU 适用性、
+&ldquo;UAV 存储允许复用蒙皮结果&rdquo;、双四元数的代价（&lt;1.5×）与膨胀</li>
+<li>RTR4 §4.5 Morphing（书内 p.87–90）：Eq 4.60、Eq 4.61（morph target）</li>
+<li>UE 5.8 源码：<code>Engine/Shaders/Private/GpuSkinCommon.ush</code>、<code>GpuSkinVertexFactory.ush</code>、
+<code>GpuSkinCacheComputeShader.usf</code>、<code>Engine/Source/Runtime/Engine/Public/GPUSkinPublicDefs.h</code></li>
+<li>Unity 2022.3.62 LTS：<code>Editor/Data/CGIncludes/builtin_shaders.zip</code> 内的
+<code>CGIncludes/VertexShaderSkinning.cginc</code>、<code>DefaultResources/Internal-Skinning.compute</code>、
+<code>DefaultResources/Internal-Skinning-Util.cginc</code>、<code>DefaultResources/Internal-BlendShape.compute</code></li>
+<li>Godot：<code>servers/rendering/renderer_rd/shaders/skeleton.glsl</code>、
+<code>servers/rendering/renderer_rd/storage_rd/mesh_storage.cpp</code>、
+<code>scene/3d/skeleton_3d.cpp</code>、<code>drivers/gles3/shaders/skeleton.glsl</code></li>
+<li>本文所有数值（半径保留率、蒙皮矩阵算例）由附录一脚本算出，<a href="https://froler27.github.io/demo/skinning.html">交互演示</a>里可实时对照</li>
+</ul>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="https://froler27.github.io/tags/%E5%9B%BE%E5%BD%A2%E5%AD%A6/">图形学</a></li>
+      <li><a href="https://froler27.github.io/tags/%E6%B8%B2%E6%9F%93/">渲染</a></li>
+      <li><a href="https://froler27.github.io/tags/%E5%8A%A8%E7%94%BB/">动画</a></li>
+      <li><a href="https://froler27.github.io/tags/%E5%BC%95%E6%93%8E%E6%BA%90%E7%A0%81/">引擎源码</a></li>
+    </ul>
+<nav class="paginav">
+  <a class="next" href="https://froler27.github.io/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/">
+    <span class="title">下一页 »</span>
+    <span>万向锁到底锁住了什么？</span>
+  </a>
+</nav>
+
+  </footer>
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="https://froler27.github.io/">幻域 · 渲染笔记</a></span> · 
+
+    
+    
+    <span>
+        Powered by
+        <a href="https://gohugo.io/?utm_source=papermod" rel="noopener" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" id="top-link" class="top-link hidden" aria-label="go to top" title="Go to Top (Alt + G)" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevrons-up">
+        <polyline points="17 11 12 6 7 11"></polyline>
+        <polyline points="17 18 12 13 7 18"></polyline>
+    </svg>
+</a>
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var toplink = document.getElementById("top-link");
+    window.onscroll = function () {
+        const scrollThreshold = window.innerHeight;
+        if (document.body.scrollTop > scrollThreshold || document.documentElement.scrollTop > scrollThreshold) {
+            toplink.classList.remove("hidden");
+        } else {
+            toplink.classList.add("hidden");
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+<script>
+    document.querySelectorAll('pre > code').forEach((codeblock) => {
+        const container = codeblock.parentNode.parentNode;
+
+        const copybutton = document.createElement('button');
+        copybutton.classList.add('copy-code');
+        copybutton.innerHTML = '复制';
+
+        function copyingDone() {
+            copybutton.innerHTML = '已复制！';
+            setTimeout(() => {
+                copybutton.innerHTML = '复制';
+            }, 2000);
+        }
+
+        copybutton.addEventListener('click', (cb) => {
+            if ('clipboard' in navigator) {
+                navigator.clipboard.writeText(codeblock.textContent);
+                copyingDone();
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(codeblock);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                document.execCommand('copy');
+                copyingDone();
+            } catch (e) { };
+            selection.removeRange(range);
+        });
+
+        if (container.classList.contains("highlight")) {
+            container.appendChild(copybutton);
+        } else if (container.parentNode.firstChild == container) {
+            
+        } else if (codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName == "TABLE") {
+            
+            codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(copybutton);
+        } else {
+            
+            codeblock.parentNode.appendChild(copybutton);
+        }
+    });
+</script>
+</body>
+
+</html>
