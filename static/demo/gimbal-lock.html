@@ -73,6 +73,10 @@ button.primary:hover{background:#1e293b}
 .exp{font-size:13px;line-height:1.6;margin-top:10px;padding:10px 12px;border-radius:9px;
      background:#f0f9ff;border:1px solid #bae6fd;display:none}
 .exp.on{display:block}
+/* 内嵌模式（?embed=1）：给文章 iframe 用，去掉标题与冗余卡片、收紧留白 */
+body.embed{background:#fff}
+body.embed .wrap{padding:10px 10px 16px;max-width:none}
+body.embed h1, body.embed .sub, body.embed .card.why{display:none}
 </style>
 </head>
 <body>
@@ -127,7 +131,7 @@ button.primary:hover{background:#1e293b}
     </div>
   </div>
 
-  <div class="card" style="margin-top:22px">
+  <div class="card why" style="margin-top:22px">
     <h2>为什么会这样（一句话）</h2>
     <p class="note">
       欧拉角是<b>三层嵌套</b>的旋转：外层带动中层、中层带动内层。中间层转到 ±90° 时，
@@ -185,10 +189,26 @@ function rank(M,tol=1e-4){
 /* ───────────── 固定视角投影 ───────────── */
 const cv=document.getElementById("cv"), ctx=cv.getContext("2d");
 const DPR=Math.max(1,window.devicePixelRatio||1);
-const W=700,H=580;
-cv.width=W*DPR; cv.height=H*DPR; cv.style.width=W+"px"; cv.style.height=H+"px";
-ctx.scale(DPR,DPR);
-const CX=W/2, CY=H/2+16, FOCAL=1180, DIST=5.0;
+/* 画布按容器宽度自适应：投影参数全部按 700px 基准等比缩放。
+   这样它既能全屏看，也能被文章以内嵌（约 700px 宽）放进去。 */
+let W=700,H=580,CX=350,CY=306,FOCAL=1180;
+const DIST=5.0;
+function layout(){
+  /* 面板最小宽 330、gap 22：装不下一行就换行，画布此时可以占满整行。
+     （用 .layout 的可用宽度判断，避免"画布宽度取决于容器、容器又取决于画布"的死循环） */
+  const box=document.querySelector(".layout");
+  const cw=(box?box.clientWidth:0)||W;
+  const stacked = cw < 700 + 16 + 22 + 330;
+  const avail = stacked ? cw-16 : Math.min(700, cw-22-330-16);
+  const nw=Math.max(280, Math.min(700, Math.floor(avail)));
+  W=nw; H=Math.round(W*580/700);
+  CX=W/2; CY=H/2+Math.round(16*W/700); FOCAL=1180*W/700;
+  cv.width=W*DPR; cv.height=H*DPR;
+  cv.style.width=W+"px"; cv.style.height=H+"px";
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+}
+layout();
+window.addEventListener("resize",layout);
 /* 默认视角：视线取三条转轴构成的"体对角线"方向，三个环张开度同时 = 1/√3 ≈ 0.577
    （张开度 = |法线·视线|，1 = 正对镜头，0 = 侧对成一条线）。
    三轴正交 ⇒ 三者张开度的平方和恒为 1，α 一变必然有环被压扁，所以默认角选在均衡点。 */
@@ -335,7 +355,7 @@ function render(){
     const y0=H-52;
     ctx.fillStyle="rgba(254,242,242,.94)";
     ctx.strokeStyle="#fecaca"; ctx.lineWidth=1;
-    const bw=470, bx=CX-bw/2;
+    const bw=Math.min(470, W-36), bx=CX-bw/2;
     ctx.beginPath(); ctx.roundRect(bx,y0-19,bw,60,10); ctx.fill(); ctx.stroke();
     ctx.textAlign="center"; ctx.textBaseline="middle";
     ctx.font="700 15px 'Microsoft YaHei',sans-serif"; ctx.fillStyle="#dc2626";
@@ -385,6 +405,7 @@ if(Q.has("a")) ia.value=+Q.get("a");
 if(Q.has("b")) ib.value=+Q.get("b");
 if(Q.has("g")) ic.value=+Q.get("g");
 if(Q.get("axis")==="1") document.getElementById("onlyAxis").checked=true;
+if(Q.get("embed")==="1") document.body.classList.add("embed");
 sync();
 
 let raf=null;
