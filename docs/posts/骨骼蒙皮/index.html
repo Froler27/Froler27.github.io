@@ -273,8 +273,8 @@
     </div>
 </details>
 
-  <div class="post-content md-content"><iframe class="demo-frame" src="https://froler27.github.io/demo/skinning.html?embed=1" width="100%" height="1025" loading="lazy" title="骨骼蒙皮 · 交互演示" style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;max-width:100%"></iframe>
-<p><strong>先玩一下</strong>：一根骨头、两个骨骼、中间一段混合区。把扭转角拉到 170°，看左边 LBS 的管子怎么被&quot;掐细&quot;，右边 DQS 却纹丝不动。<a href="https://froler27.github.io/demo/skinning.html">在新窗口打开完整演示 ↗</a></p>
+  <div class="post-content md-content"><iframe class="demo-frame" src="/demo/skinning.html?embed=1" width="100%" height="1025" loading="lazy" title="骨骼蒙皮 · 交互演示" style="border:1px solid #e2e8f0;border-radius:12px;background:#fff;max-width:100%"></iframe>
+<p><strong>先玩一下</strong>：一根骨头、两个骨骼、中间一段混合区。把扭转角拉到 170°，看左边 LBS 的管子怎么被&quot;掐细&quot;，右边 DQS 却纹丝不动。<a href="/demo/skinning.html">在新窗口打开完整演示 ↗</a></p>
 <h2 id="结论">结论<a hidden class="anchor" aria-hidden="true" href="#结论">#</a></h2>
 <p><strong>① 蒙皮只有一条公式，但&quot;在哪算&quot;有三个层次。</strong></p>
 $$u(t) = \sum_{i} w_i \, B_i(t) M_i^{-1} \, p$$<p>每帧真正变化的是 $B_i(t)$。这三个层次是：<strong>场景顶点着色器内联算</strong>、<strong>独立 compute 算完写回顶点缓冲</strong>、
@@ -846,7 +846,7 @@ w=1.0   → 保留率 1.000000
 <li>Godot：<code>servers/rendering/renderer_rd/shaders/skeleton.glsl</code>、
 <code>servers/rendering/renderer_rd/storage_rd/mesh_storage.cpp</code>、
 <code>scene/3d/skeleton_3d.cpp</code>、<code>drivers/gles3/shaders/skeleton.glsl</code></li>
-<li>本文所有数值（半径保留率、蒙皮矩阵算例）由附录一脚本算出，<a href="https://froler27.github.io/demo/skinning.html">交互演示</a>里可实时对照</li>
+<li>本文所有数值（半径保留率、蒙皮矩阵算例）由附录一脚本算出，<a href="/demo/skinning.html">交互演示</a>里可实时对照</li>
 </ul>
 
 
