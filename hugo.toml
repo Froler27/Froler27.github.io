@@ -1,4 +1,4 @@
-baseURL = "https://froler27.github.io/"
+baseURL = "https://quanpu.wang/"
 locale = "zh-cn"
 defaultContentLanguage = "zh"
 # 关键：Hugo 默认按 UTC 解析不带时间的 date。

@@ -2,25 +2,25 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
     <title>幻域 · 渲染笔记</title>
-    <link>https://froler27.github.io/</link>
+    <link>https://quanpu.wang/</link>
     <description>Recent content on 幻域 · 渲染笔记</description>
     <generator>Hugo</generator>
     <language>zh-cn</language>
     <lastBuildDate>Tue, 22 Sep 2026 00:00:00 +0800</lastBuildDate>
-    <atom:link href="https://froler27.github.io/index.xml" rel="self" type="application/rss+xml" />
+    <atom:link href="https://quanpu.wang/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>骨骼蒙皮：三个引擎都不在顶点着色器里做</title>
-      <link>https://froler27.github.io/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/</link>
+      <link>https://quanpu.wang/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/</link>
       <pubDate>Tue, 22 Sep 2026 00:00:00 +0800</pubDate>
-      <guid>https://froler27.github.io/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/</guid>
+      <guid>https://quanpu.wang/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/</guid>
       <description>骨骼蒙皮的公式只有一条，但“在哪算”有三个层次——UE、Unity、Godot 的主流路径都不在场景顶点着色器里。逐字核对三家的蒙皮代码后，说清整条流程、关键实现，以及五个只有翻源码才知道的设计决定。</description>
     </item>
     <item>
       <title>关于</title>
-      <link>https://froler27.github.io/about/</link>
+      <link>https://quanpu.wang/about/</link>
       <pubDate>Tue, 22 Sep 2026 00:00:00 +0800</pubDate>
-      <guid>https://froler27.github.io/about/</guid>
-      <description>&lt;p&gt;&lt;img alt=&#34;幻域 · 渲染笔记&#34; loading=&#34;lazy&#34; src=&#34;https://froler27.github.io/images/brand/banner-1600x400.png&#34;&gt;&lt;/p&gt;
+      <guid>https://quanpu.wang/about/</guid>
+      <description>&lt;p&gt;&lt;img alt=&#34;幻域 · 渲染笔记&#34; loading=&#34;lazy&#34; src=&#34;https://quanpu.wang/images/brand/banner-1600x400.png&#34;&gt;&lt;/p&gt;
 &lt;p&gt;图形程序开发者，桌面与移动两端的实时渲染都做。&lt;/p&gt;
 &lt;p&gt;这个博客记录三件事：&lt;/p&gt;
 &lt;ol&gt;
@@ -44,23 +44,23 @@
     </item>
     <item>
       <title>万向锁到底锁住了什么？</title>
-      <link>https://froler27.github.io/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/</link>
+      <link>https://quanpu.wang/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/</link>
       <pubDate>Tue, 22 Sep 2026 00:00:00 +0800</pubDate>
-      <guid>https://froler27.github.io/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/</guid>
+      <guid>https://quanpu.wang/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/</guid>
       <description>万向锁丢的是参数的自由度，不是姿态的自由度。从姿态雅可比矩阵的秩和条件数出发，说清锁死时的精确等价关系、为什么符号会变，以及为什么“别转到 90°”不是解法。</description>
     </item>
     <item>
       <title>为什么法线不能直接用模型矩阵变换？</title>
-      <link>https://froler27.github.io/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/</link>
+      <link>https://quanpu.wang/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/</link>
       <pubDate>Tue, 22 Sep 2026 00:00:00 +0800</pubDate>
-      <guid>https://froler27.github.io/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/</guid>
+      <guid>https://quanpu.wang/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/</guid>
       <description>从 n·t = 0 这个约束出发推导法线变换矩阵，说清它唯一到什么程度、什么时候可以省掉、以及矩阵奇异时该怎么办。</description>
     </item>
     <item>
       <title>这个博客要写什么</title>
-      <link>https://froler27.github.io/posts/hello/</link>
+      <link>https://quanpu.wang/posts/hello/</link>
       <pubDate>Tue, 22 Sep 2026 00:00:00 +0800</pubDate>
-      <guid>https://froler27.github.io/posts/hello/</guid>
+      <guid>https://quanpu.wang/posts/hello/</guid>
       <description>三件事：读论文、读源码、写渲染器。以及一条写作原则——每篇都要有能被验证的东西。</description>
     </item>
   </channel>

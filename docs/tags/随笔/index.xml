@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
     <title>随笔 on 幻域 · 渲染笔记</title>
-    <link>https://froler27.github.io/tags/%E9%9A%8F%E7%AC%94/</link>
+    <link>https://quanpu.wang/tags/%E9%9A%8F%E7%AC%94/</link>
     <description>Recent content in 随笔 on 幻域 · 渲染笔记</description>
     <generator>Hugo</generator>
     <language>zh-cn</language>
     <lastBuildDate>Tue, 22 Sep 2026 00:00:00 +0800</lastBuildDate>
-    <atom:link href="https://froler27.github.io/tags/%E9%9A%8F%E7%AC%94/index.xml" rel="self" type="application/rss+xml" />
+    <atom:link href="https://quanpu.wang/tags/%E9%9A%8F%E7%AC%94/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>这个博客要写什么</title>
-      <link>https://froler27.github.io/posts/hello/</link>
+      <link>https://quanpu.wang/posts/hello/</link>
       <pubDate>Tue, 22 Sep 2026 00:00:00 +0800</pubDate>
-      <guid>https://froler27.github.io/posts/hello/</guid>
+      <guid>https://quanpu.wang/posts/hello/</guid>
       <description>三件事：读论文、读源码、写渲染器。以及一条写作原则——每篇都要有能被验证的东西。</description>
     </item>
   </channel>

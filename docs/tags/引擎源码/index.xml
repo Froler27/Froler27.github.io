@@ -2,17 +2,17 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
   <channel>
     <title>引擎源码 on 幻域 · 渲染笔记</title>
-    <link>https://froler27.github.io/tags/%E5%BC%95%E6%93%8E%E6%BA%90%E7%A0%81/</link>
+    <link>https://quanpu.wang/tags/%E5%BC%95%E6%93%8E%E6%BA%90%E7%A0%81/</link>
     <description>Recent content in 引擎源码 on 幻域 · 渲染笔记</description>
     <generator>Hugo</generator>
     <language>zh-cn</language>
     <lastBuildDate>Tue, 22 Sep 2026 00:00:00 +0800</lastBuildDate>
-    <atom:link href="https://froler27.github.io/tags/%E5%BC%95%E6%93%8E%E6%BA%90%E7%A0%81/index.xml" rel="self" type="application/rss+xml" />
+    <atom:link href="https://quanpu.wang/tags/%E5%BC%95%E6%93%8E%E6%BA%90%E7%A0%81/index.xml" rel="self" type="application/rss+xml" />
     <item>
       <title>骨骼蒙皮：三个引擎都不在顶点着色器里做</title>
-      <link>https://froler27.github.io/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/</link>
+      <link>https://quanpu.wang/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/</link>
       <pubDate>Tue, 22 Sep 2026 00:00:00 +0800</pubDate>
-      <guid>https://froler27.github.io/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/</guid>
+      <guid>https://quanpu.wang/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/</guid>
       <description>骨骼蒙皮的公式只有一条，但“在哪算”有三个层次——UE、Unity、Godot 的主流路径都不在场景顶点着色器里。逐字核对三家的蒙皮代码后，说清整条流程、关键实现，以及五个只有翻源码才知道的设计决定。</description>
     </item>
   </channel>
