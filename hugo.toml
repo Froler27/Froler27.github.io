@@ -46,6 +46,12 @@ pagination.pagerSize = 10
   TocOpen = false
   comments = false
 
+  # 头部 logo —— PaperMod 把它渲染在站点名左边（label.icon）。
+  # 放 assets/ 下走 resources.Get 资源处理；SVG 不参与缩放，按 iconHeight 显示。
+  [params.label]
+    icon = "images/logo.svg"
+    iconHeight = 34
+
   [params.assets]
     disableHLJS = true
     # 关掉 resource fingerprint。原因：PaperMod 的 CSS 源本身是 CRLF，Hugo 按含 CRLF 的

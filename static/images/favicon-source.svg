@@ -1,7 +1,1 @@
-<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
-  <rect width="128" height="128" rx="26" fill="#111827"/>
-  <g fill="none" stroke="#38bdf8" stroke-width="13.0" stroke-linejoin="round" stroke-linecap="round">
-    <polygon points="64.0,15.0 106.4,39.5 106.4,88.5 64.0,113.0 21.6,88.5 21.6,39.5"/>
-    <path d="M64.0,64.0 L64.0,15.0 M64.0,64.0 L106.4,88.5 M64.0,64.0 L21.6,88.5"/>
-  </g>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128"><rect width="128" height="128" rx="26" fill="#0f172a"/><polygon points="64.0,18.0 103.8,41.0 64.0,64.0 24.2,41.0" fill="#7dd3fc"/><polygon points="24.2,41.0 64.0,64.0 64.0,110.0 24.2,87.0" fill="#38bdf8"/><polygon points="103.8,41.0 103.8,87.0 64.0,110.0 64.0,64.0" fill="#0284c7"/></svg>

@@ -4,7 +4,11 @@ date: 2026-09-22
 ShowToc: false
 ShowReadingTime: false
 hidemeta: true
+# 社交分享用的卡片（hidden 让它不出现在正文，但 og:image 仍然取它）
+cover: {image: "/images/brand/og-1200x630.png", hidden: true, alt: "幻域 · 渲染笔记"}
 ---
+
+![幻域 · 渲染笔记](/images/brand/banner-1600x400.png)
 
 图形程序开发者，桌面与移动两端的实时渲染都做。
 
