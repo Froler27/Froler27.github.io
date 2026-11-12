@@ -1,0 +1,5 @@
+# 构建产物按原始字节保存：
+# Windows 的 core.autocrlf 会把 Hugo 生成的 CSS/JS 从 CRLF 改写成 LF，
+# 导致 index.html 里 SRI integrity 哈希与线上文件不一致，浏览器会拒绝加载样式。
+# docs/ 是产物目录，不需要文本换行规范化。
+docs/** -text
