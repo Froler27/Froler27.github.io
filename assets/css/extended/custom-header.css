@@ -1,0 +1,281 @@
+/* ==========================================================================
+   幻域 · 渲染笔记 — 顶部导航
+   悬停时透明，滚动后变成磨砂玻璃；渐变发丝线 + 品牌青状态色
+   ========================================================================== */
+
+:root {
+    --header-height: 68px;
+    --header-bg: rgba(244, 248, 255, 0.72);
+}
+
+:root[data-theme="dark"] {
+    --header-bg: rgba(5, 8, 15, 0.62);
+}
+
+@media (prefers-color-scheme: dark) {
+    :root[data-theme="auto"] {
+        --header-bg: rgba(5, 8, 15, 0.62);
+    }
+}
+
+/* --------------------------------------------------------------------------
+   1. 容器与整体
+   -------------------------------------------------------------------------- */
+.header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: transparent;
+    border-bottom: 1px solid transparent;
+    transition: background-color 0.35s var(--ease-out), border-color 0.35s var(--ease-out),
+        backdrop-filter 0.35s var(--ease-out), box-shadow 0.35s var(--ease-out);
+}
+
+/* 滚动后：磨砂玻璃 + 底部渐变发丝线 */
+body.is-scrolled .header {
+    background: var(--header-bg);
+    border-bottom-color: var(--border);
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    box-shadow: 0 12px 40px -28px rgba(0, 0, 0, 0.6);
+}
+
+/* 深色下滚动时再叠一层青色微光 */
+body.is-scrolled .header::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 1px;
+    background: var(--gradient-line);
+    opacity: 0.8;
+    pointer-events: none;
+}
+
+.header-nav {
+    max-width: calc(1200px + var(--gap) * 2);
+    min-height: var(--header-height);
+    padding: 0 24px;
+    line-height: var(--header-height);
+    align-items: center;
+    column-gap: 18px;
+}
+
+/* --------------------------------------------------------------------------
+   2. 站点标识
+   -------------------------------------------------------------------------- */
+.logo a {
+    font-size: 21px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: var(--primary);
+    transition: color 0.25s, opacity 0.25s;
+}
+
+.logo a img,
+.logo a svg {
+    height: 30px;
+    width: auto;
+    filter: drop-shadow(0 0 10px var(--glow));
+    transition: transform 0.5s var(--ease-spring), filter 0.4s;
+}
+
+.logo a:hover {
+    color: var(--accent);
+    opacity: 1;
+}
+
+.logo a:hover img,
+.logo a:hover svg {
+    transform: rotate(-8deg) scale(1.06);
+    filter: drop-shadow(0 0 16px var(--glow-strong));
+}
+
+/* --------------------------------------------------------------------------
+   3. 菜单
+   -------------------------------------------------------------------------- */
+.menu {
+    column-gap: 2px;
+    align-items: center;
+}
+
+.menu a {
+    position: relative;
+    isolation: isolate;
+    font-size: 14.5px;
+    font-weight: 500;
+    color: var(--secondary);
+    padding: 0 12px;
+    border-radius: 999px;
+    transition: color 0.22s, background-color 0.22s;
+}
+
+.menu a span {
+    position: relative;
+    display: inline-block;
+}
+
+/* 悬停下划线：从中间向两端展开的渐变线 */
+.menu a span::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 22px;
+    height: 1.5px;
+    background: var(--gradient-accent);
+    border-radius: 2px;
+    transform: scaleX(0);
+    transform-origin: 50% 50%;
+    transition: transform 0.3s var(--ease-out);
+    opacity: 0.9;
+}
+
+.menu a:hover {
+    color: var(--primary);
+    background: var(--glass);
+}
+
+.menu a:hover span::after {
+    transform: scaleX(1);
+}
+
+.menu .active {
+    font-weight: 600;
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.menu .active::before {
+    content: "";
+    position: absolute;
+    inset: 8px 2px;
+    z-index: -1;
+    background: var(--glow);
+    border-radius: 999px;
+    opacity: 0.65;
+}
+
+.menu .active span::after {
+    transform: scaleX(1);
+    opacity: 1;
+}
+
+/* 外链箭头 */
+.menu a svg {
+    vertical-align: -1px;
+    opacity: 0.7;
+}
+
+/* --------------------------------------------------------------------------
+   4. 主题切换
+   -------------------------------------------------------------------------- */
+.logo-switches {
+    gap: 6px;
+}
+
+.theme-toggle {
+    position: relative;
+    width: 34px;
+    height: 34px;
+    min-height: 34px;
+    align-self: center;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--secondary);
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    transition: color 0.25s, border-color 0.25s, background-color 0.25s,
+        transform 0.5s var(--ease-spring), box-shadow 0.25s;
+}
+
+.theme-toggle:hover {
+    color: var(--accent);
+    border-color: var(--border-strong);
+    transform: rotate(-15deg);
+    box-shadow: 0 0 20px -4px var(--glow-strong);
+}
+
+.theme-toggle svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* --------------------------------------------------------------------------
+   5. 移动端
+   -------------------------------------------------------------------------- */
+@media screen and (max-width: 768px) {
+    .header-nav {
+        padding: 0 18px;
+        min-height: var(--header-height);
+        column-gap: 10px;
+        row-gap: 0;
+        flex-wrap: nowrap;
+    }
+
+    .logo {
+        flex-wrap: nowrap;
+        min-width: 0;
+        column-gap: 4px;
+    }
+
+    .logo a {
+        font-size: 17px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .logo a img,
+    .logo a svg {
+        height: 24px;
+    }
+
+    .menu {
+        column-gap: 0;
+        flex: 1;
+        justify-content: flex-end;
+        overflow-x: auto;
+        scrollbar-width: none;
+    }
+
+    .menu::-webkit-scrollbar {
+        display: none;
+    }
+
+    .menu a {
+        font-size: 13.5px;
+        padding: 0 9px;
+    }
+
+    .menu a span::after {
+        bottom: 16px;
+    }
+
+    .theme-toggle {
+        width: 30px;
+        height: 30px;
+        min-height: 30px;
+        flex: 0 0 auto;
+    }
+}
+
+@media screen and (max-width: 420px) {
+    .logo a img,
+    .logo a svg {
+        display: none;
+    }
+
+    .logo a {
+        font-size: 15.5px;
+    }
+
+    .menu a {
+        padding: 0 7px;
+        font-size: 13px;
+    }
+}

@@ -65,7 +65,9 @@
         document.querySelector("html").dataset.theme = 'light';
     }
 
-</script>
+</script><script>document.documentElement.classList.add("js");</script><meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4f8ff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#05080f">
+<meta name="color-scheme" content="light dark">
 <meta property="og:url" content="https://quanpu.wang/tags/%E5%9B%BE%E5%BD%A2%E5%AD%A6/">
   <meta property="og:site_name" content="幻域 · 渲染笔记">
   <meta property="og:title" content="图形学">
@@ -78,7 +80,10 @@
   <meta name="twitter:description" content="实时渲染 / 图形学 / 跨平台工程的笔记与实验">
 
 </head>
-<body class="list" id="top">
+
+<body class="list wide" id="top">
+    <a class="skip-link" href="#main">跳到正文</a>
+    <div class="scroll-progress" aria-hidden="true"></div>
     <header class="header">
     <nav class="header-nav">
         <div class="logo">
@@ -132,7 +137,7 @@
         </ul>
     </nav>
 </header>
-<main class="main"> 
+<main class="main" id="main"> 
 <header class="page-header"><nav class="breadcrumbs" role="navigation" aria-label="Breadcrumb">
             <a href="/">主页</a>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
@@ -220,6 +225,8 @@
         <polyline points="17 18 12 13 7 18"></polyline>
     </svg>
 </a>
+<script defer src="/js/custom/site.js"></script>
+
 
 <script>
     let menu = document.getElementById('menu');

@@ -1,0 +1,37 @@
+{{- if lt hugo.Version "0.146.0" }}
+{{- errorf "=> hugo v0.146.0 or greater is required for hugo-PaperMod to build " }}
+{{- end -}}
+
+<!DOCTYPE html>
+{{- $theme := site.Params.defaultTheme | default "auto" }}
+{{- if eq $theme "dark" }}
+<html lang="{{ site.Language }}" dir="{{ .Language.LanguageDirection | default "auto" }}" data-theme="dark">
+{{- else if eq $theme "light" }}
+<html lang="{{ site.Language }}" dir="{{ .Language.LanguageDirection | default "auto" }}" data-theme="light">
+{{- else }}
+<html lang="{{ site.Language }}" dir="{{ .Language.LanguageDirection | default "auto" }}" data-theme="auto">
+{{- end }}
+
+{{- /* 页面类型交给 body 类名，供 CSS 放宽首页 / 列表页版心 */ -}}
+{{- $bodyClass := "" }}
+{{- if .IsHome }}
+{{- $bodyClass = "home list wide" }}
+{{- else if (or (ne .Kind `page` ) (eq .Layout `archives`) (eq .Layout `search`)) }}
+{{- $bodyClass = "list wide" }}
+{{- end }}
+
+<head>
+    {{- partial "head.html" . }}
+</head>
+
+<body {{ with $bodyClass }}class="{{ . }}" {{ end }}id="top">
+    <a class="skip-link" href="#main">跳到正文</a>
+    <div class="scroll-progress" aria-hidden="true"></div>
+    {{ partialCached "header.html" . .Page -}}
+    <main class="main" id="main">
+        {{- block "main" . }}{{ end }}
+    </main>
+    {{ partialCached "footer.html" . .Layout .Kind (.Param "hideFooter") (.Param "ShowCodeCopyButtons") -}}
+</body>
+
+</html>

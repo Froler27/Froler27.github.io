@@ -71,10 +71,12 @@
   onload="renderMathInElement(document.body, {
     delimiters: [
       {left: '$$', right: '$$', display: true},
-      {left: '$',  right: '$',  display: false}
+      {left: '$', right: '$',  display: false}
     ],
     throwOnError: false
-  });"></script>
+  });"></script><script>document.documentElement.classList.add("js");</script><meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4f8ff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#05080f">
+<meta name="color-scheme" content="light dark">
 <meta property="og:url" content="https://quanpu.wang/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/">
   <meta property="og:site_name" content="幻域 · 渲染笔记">
   <meta property="og:title" content="为什么法线不能直接用模型矩阵变换？">
@@ -148,7 +150,10 @@
 }
 </script>
 </head>
+
 <body id="top">
+    <a class="skip-link" href="#main">跳到正文</a>
+    <div class="scroll-progress" aria-hidden="true"></div>
     <header class="header">
     <nav class="header-nav">
         <div class="logo">
@@ -202,7 +207,7 @@
         </ul>
     </nav>
 </header>
-<main class="main">
+<main class="main" id="main">
 
 <article class="post-single">
   <header class="post-header">
@@ -583,6 +588,8 @@ $\operatorname{adj}(M)^{\mathsf T}$ 就是余子式矩阵 $C$，它的三列是�
         <polyline points="17 18 12 13 7 18"></polyline>
     </svg>
 </a>
+<script defer src="/js/custom/site.js"></script>
+
 
 <script>
     let menu = document.getElementById('menu');

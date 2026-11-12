@@ -71,10 +71,12 @@
   onload="renderMathInElement(document.body, {
     delimiters: [
       {left: '$$', right: '$$', display: true},
-      {left: '$',  right: '$',  display: false}
+      {left: '$', right: '$',  display: false}
     ],
     throwOnError: false
-  });"></script>
+  });"></script><script>document.documentElement.classList.add("js");</script><meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4f8ff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#05080f">
+<meta name="color-scheme" content="light dark">
 <meta property="og:url" content="https://quanpu.wang/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/">
   <meta property="og:site_name" content="幻域 · 渲染笔记">
   <meta property="og:title" content="骨骼蒙皮：三个引擎都不在顶点着色器里做">
@@ -149,7 +151,10 @@
 }
 </script>
 </head>
+
 <body id="top">
+    <a class="skip-link" href="#main">跳到正文</a>
+    <div class="scroll-progress" aria-hidden="true"></div>
     <header class="header">
     <nav class="header-nav">
         <div class="logo">
@@ -203,7 +208,7 @@
         </ul>
     </nav>
 </header>
-<main class="main">
+<main class="main" id="main">
 
 <article class="post-single">
   <header class="post-header">
@@ -888,6 +893,8 @@ w=1.0   → 保留率 1.000000
         <polyline points="17 18 12 13 7 18"></polyline>
     </svg>
 </a>
+<script defer src="/js/custom/site.js"></script>
+
 
 <script>
     let menu = document.getElementById('menu');

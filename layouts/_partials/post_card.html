@@ -1,0 +1,24 @@
+{{- /* 首页笔记卡片：$page 页面、$index 序号、$featured 是否特稿、$offset 入场延迟 */ -}}
+{{- $page := .page }}
+{{- $index := .index }}
+{{- $featured := .featured }}
+{{- $wide := .wide }}
+<article class="note-card reveal{{ if $featured }} note-card--featured{{ end }}{{ if $wide }} note-card--wide{{ end }}" style="--reveal-delay: {{ .offset }}ms">
+    {{- if $featured }}<span class="note-visual" aria-hidden="true"></span>{{ end }}
+    <a class="note-card-link" href="{{ $page.RelPermalink }}">
+        <div class="note-card-top">
+            <span class="note-card-index">{{ printf "%02d" (add $index 1) }}</span>
+            <span class="note-card-date">{{ $page.Date | time.Format "2006.01.02" }} · {{ $page.ReadingTime }} MIN</span>
+        </div>
+        <h3 class="note-card-title">{{ $page.Title }}</h3>
+        <p class="note-card-summary">{{ $page.Summary | plainify | htmlUnescape }}</p>
+        <div class="note-card-foot">
+            <div class="note-tags">
+                {{- range first 3 $page.Params.tags }}<span class="note-tag">{{ . }}</span>{{ end }}
+            </div>
+            <span class="note-card-arrow" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7"/><path d="M9 7h8v8"/></svg>
+            </span>
+        </div>
+    </a>
+</article>

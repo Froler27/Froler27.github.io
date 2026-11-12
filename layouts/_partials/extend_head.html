@@ -11,8 +11,16 @@
   onload="renderMathInElement(document.body, {
     delimiters: [
       {left: '$$', right: '$$', display: true},
-      {left: '$',  right: '$',  display: false}
+      {left: '$', right: '$',  display: false}
     ],
     throwOnError: false
   });"></script>
 {{- end }}
+
+{{- /* 在首帧之前给 <html> 打上 js 标记：入场动画只对 JS 环境生效，避免内容被隐藏 */ -}}
+<script>document.documentElement.classList.add("js");</script>
+
+{{- /* 浏览器 UI 配色：深浅两种主题各给一个 theme-color */ -}}
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4f8ff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#05080f">
+<meta name="color-scheme" content="light dark">

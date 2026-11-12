@@ -65,7 +65,9 @@
         document.querySelector("html").dataset.theme = 'light';
     }
 
-</script>
+</script><script>document.documentElement.classList.add("js");</script><meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4f8ff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#05080f">
+<meta name="color-scheme" content="light dark">
 <meta property="og:url" content="https://quanpu.wang/categories/">
   <meta property="og:site_name" content="幻域 · 渲染笔记">
   <meta property="og:title" content="分类">
@@ -78,7 +80,10 @@
   <meta name="twitter:description" content="按分类浏览文章">
 
 </head>
-<body class="list" id="top">
+
+<body class="list wide" id="top">
+    <a class="skip-link" href="#main">跳到正文</a>
+    <div class="scroll-progress" aria-hidden="true"></div>
     <header class="header">
     <nav class="header-nav">
         <div class="logo">
@@ -132,7 +137,7 @@
         </ul>
     </nav>
 </header>
-<main class="main">
+<main class="main" id="main">
 <header class="page-header">
     <h1>分类</h1>
     <div class="post-description">
@@ -162,6 +167,8 @@
         <polyline points="17 18 12 13 7 18"></polyline>
     </svg>
 </a>
+<script defer src="/js/custom/site.js"></script>
+
 
 <script>
     let menu = document.getElementById('menu');

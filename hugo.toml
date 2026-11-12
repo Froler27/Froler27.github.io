@@ -46,6 +46,16 @@ pagination.pagerSize = 10
   TocOpen = false
   comments = false
 
+  # 首页 Hero 文案（layouts/index.html 读取）。留空会回退到内置文案。
+  [params.hero]
+    kicker = "RENDERING NOTES · 实时渲染 / 图形学 / 跨平台"
+    kickerShort = "实时渲染 / 图形学 / 跨平台"
+    lead = "把光线、几何与性能算清楚——读论文、读引擎源码、写渲染器，然后把想清楚的东西说清楚。"
+    primaryText = "进入笔记"
+    primaryURL = "/posts/"
+    secondaryText = "关于我"
+    secondaryURL = "/about/"
+
   # 头部 logo —— PaperMod 把它渲染在站点名左边（label.icon）。
   # 放 assets/ 下走 resources.Get 资源处理；SVG 不参与缩放，按 iconHeight 显示。
   [params.label]

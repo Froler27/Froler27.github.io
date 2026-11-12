@@ -1,0 +1,169 @@
+{{- /* 首页：Hero + 跑马灯 + 笔记卡片流 + 交互实验 + 关于条 */ -}}
+{{- define "main" }}
+{{- $pages := where site.RegularPages "Type" "in" site.Params.mainSections }}
+{{- $paginator := .Paginate $pages }}
+{{- $isFirst := eq $paginator.PageNumber 1 }}
+{{- $hero := site.Params.hero }}
+{{- $noteCount := len $pages }}
+{{- $tagCount := len site.Taxonomies.tags }}
+{{- $keywords := site.Params.keywords | default (slice "实时渲染" "图形学" "GPU" "Vulkan" "Shader" "渲染管线") }}
+
+{{- if $isFirst }}
+<section class="hero" id="hero">
+    <canvas id="hero-bg" class="hero-canvas" aria-hidden="true"></canvas>
+    <div class="hero-inner home-wrap">
+        <div class="hero-copy">
+            <p class="hero-kicker"><span class="chip"><span class="chip-dot"></span><span class="kicker-full">{{ $hero.kicker | default "RENDERING NOTES · 实时渲染 / 图形学 / 跨平台" }}</span><span class="kicker-short">{{ $hero.kickerShort | default "实时渲染 / 图形学 / 跨平台" }}</span></span></p>
+
+            {{- $titleParts := split site.Title "·" }}
+            <h1 class="hero-title">
+                {{- if gt (len $titleParts) 1 }}
+                <span class="title-line">{{ trim (index $titleParts 0) " " }}<span class="title-dot">·</span></span>
+                <span class="title-line title-line-grad gradient-text">{{ trim (delimit (after 1 $titleParts) "·") " " }}</span>
+                {{- else }}
+                <span class="title-line gradient-text">{{ site.Title }}</span>
+                {{- end }}
+            </h1>
+
+            <p class="hero-lead">{{ $hero.lead | default site.Params.description | markdownify }}</p>
+
+            <div class="hero-actions">
+                <a class="btn btn-primary" href="{{ $hero.primaryURL | default "/posts/" | relLangURL }}">
+                    {{ $hero.primaryText | default "进入笔记" }}
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+                </a>
+                <a class="btn btn-ghost" href="{{ $hero.secondaryURL | default "/about/" | relLangURL }}">
+                    {{ $hero.secondaryText | default "关于我" }}
+                </a>
+                <div class="hero-socials">
+                    {{ partial "social_icons.html" (dict "align" "") }}
+                </div>
+            </div>
+
+            <div class="hero-stats">
+                <div class="hero-stat">
+                    <span class="hero-stat-num"><span class="stat-value" data-count="{{ $noteCount }}">{{ $noteCount }}</span><span class="unit">篇</span></span>
+                    <span class="hero-stat-label">Notes</span>
+                </div>
+                <div class="hero-stat">
+                    <span class="hero-stat-num"><span class="stat-value" data-count="{{ $tagCount }}">{{ $tagCount }}</span><span class="unit">个</span></span>
+                    <span class="hero-stat-label">Tags</span>
+                </div>
+                <div class="hero-stat">
+                    <span class="hero-stat-num"><span class="stat-value" data-count="2">2</span><span class="unit">个</span></span>
+                    <span class="hero-stat-label">Lab Demos</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="hero-scroll" aria-hidden="true"><span>Scroll</span><span class="scroll-line"></span></div>
+</section>
+
+<div class="marquee full-bleed" aria-hidden="true">
+    <div class="marquee-track">
+        {{- range seq 2 }}
+        <div class="marquee-group">
+            {{- range $keywords }}<span class="marquee-item">{{ . }}</span>{{ end }}
+        </div>
+        {{- end }}
+    </div>
+</div>
+{{- end }}
+
+<div class="home-wrap">
+    <section class="home-section" aria-labelledby="notes-title">
+        <header class="section-head reveal">
+            <div>
+                <p class="section-index">01 / Notes</p>
+                <h2 id="notes-title">{{ if $isFirst }}最新笔记{{ else }}笔记 · 第 {{ $paginator.PageNumber }} 页{{ end }}</h2>
+                <p class="section-sub">读论文、读源码、写渲染器——每篇都留一条能被验证的线索。</p>
+            </div>
+            <a class="section-link" href="{{ "/posts/" | relLangURL }}">
+                全部文章
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+            </a>
+        </header>
+
+        <div class="post-grid">
+            {{- $count := len $paginator.Pages }}
+            {{- range $i, $page := $paginator.Pages }}
+            {{- $featured := and $isFirst (eq $i 0) }}
+            {{- $wide := and $isFirst (eq (mod $count 2) 0) (eq $i (sub $count 1)) }}
+            {{- partial "post_card.html" (dict "page" $page "index" $i "featured" $featured "wide" $wide "offset" (mul $i 70)) }}
+            {{- end }}
+        </div>
+
+        {{- if gt $paginator.TotalPages 1 }}
+        <footer class="page-footer">
+            <nav class="pagination" aria-label="分页">
+                {{- if $paginator.HasPrev }}
+                <a class="prev" href="{{ $paginator.Prev.URL }}">← 上一页</a>
+                {{- end }}
+                {{- if $paginator.HasNext }}
+                <a class="next" href="{{ $paginator.Next.URL }}">下一页 →</a>
+                {{- end }}
+            </nav>
+        </footer>
+        {{- end }}
+    </section>
+
+    {{- if $isFirst }}
+    <section class="home-section" aria-labelledby="lab-title">
+        <header class="section-head reveal">
+            <div>
+                <p class="section-index">02 / Lab</p>
+                <h2 id="lab-title">交互实验</h2>
+                <p class="section-sub">文章里说不清的东西，就做成能拖动的。</p>
+            </div>
+        </header>
+        <div class="demo-grid">
+            <a class="demo-card reveal" href="{{ "/demo/gimbal-lock.html" | relURL }}" target="_blank" rel="noopener">
+                <div class="demo-visual demo-visual--gimbal" aria-hidden="true">
+                    <span class="demo-ghost">01</span>
+                    <span class="ring ring-a"></span>
+                    <span class="ring ring-b"></span>
+                    <span class="ring ring-c"></span>
+                </div>
+                <div class="demo-body">
+                    <span class="eyebrow">INTERACTIVE · 姿态</span>
+                    <h3 class="demo-title">万向锁 · 三轴旋转</h3>
+                    <p class="demo-desc">拖动偏航 / 俯仰 / 滚转，观察欧拉角退化时参数自由度如何丢失。</p>
+                    <span class="demo-cta">打开演示
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M9 7h8v8"/></svg>
+                    </span>
+                </div>
+            </a>
+            <a class="demo-card reveal" href="{{ "/demo/skinning.html" | relURL }}" target="_blank" rel="noopener" style="--reveal-delay: 70ms">
+                <div class="demo-visual demo-visual--skin" aria-hidden="true">
+                    <span class="demo-ghost">02</span>
+                    <span class="bone bone-a"></span>
+                    <span class="bone bone-b"></span>
+                    <span class="joint joint-a"></span>
+                    <span class="joint joint-b"></span>
+                    <span class="joint joint-c"></span>
+                </div>
+                <div class="demo-body">
+                    <span class="eyebrow">INTERACTIVE · 蒙皮</span>
+                    <h3 class="demo-title">骨骼蒙皮 · 两种插值</h3>
+                    <p class="demo-desc">并排对比线性混合与双四元数，扭到 170° 时看糖纸效应的临界点。</p>
+                    <span class="demo-cta">打开演示
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7"/><path d="M9 7h8v8"/></svg>
+                    </span>
+                </div>
+            </a>
+        </div>
+    </section>
+
+    <section class="about-strip reveal" aria-labelledby="about-title">
+        <div class="about-mark">
+            <img src="{{ "/images/brand/mark.svg" | relURL }}" alt="" width="42" height="42" loading="lazy">
+        </div>
+        <div class="about-copy">
+            <h2 id="about-title">把想清楚的东西说清楚</h2>
+            <p>图形程序开发者，桌面与移动两端的实时渲染都做。能贴代码就贴代码，能给数字就给数字。</p>
+        </div>
+        <a class="btn btn-ghost" href="{{ "/about/" | relLangURL }}">关于我</a>
+    </section>
+    {{- end }}
+</div>
+{{- end }}

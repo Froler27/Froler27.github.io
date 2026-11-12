@@ -1,0 +1,15 @@
+{{- /* 站点交互脚本：滚动进度 / 导航态 / 入场动画 / 数字滚动 / 卡片光斑 */ -}}
+{{- /* hero 背景脚本单独打包：hero-gl.js 缺失时也不影响站点构建 */ -}}
+{{- with resources.Get "js/custom/site.js" }}
+{{- $site := . | js.Build (dict "minify" true "target" "es2019") }}
+<script defer src="{{ $site.RelPermalink }}"></script>
+{{- end }}
+
+{{- if .IsHome }}
+{{- if resources.Get "js/custom/hero-gl.js" }}
+{{- with resources.Get "js/custom/hero-init.js" }}
+{{- $hero := . | js.Build (dict "minify" true "target" "es2019") }}
+<script defer src="{{ $hero.RelPermalink }}"></script>
+{{- end }}
+{{- end }}
+{{- end }}
