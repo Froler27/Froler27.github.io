@@ -50,6 +50,6 @@
 
 ## 已知约定
 
-- `disableFingerprinting = true` 不能关：历史原因，见 `hugo.toml` 中 SRI 注释
+- 资源指纹已开启（`disableFingerprinting = false`）：CSS/JS 文件名带内容哈希，新 HTML 不会配到旧缓存样式。**`.gitattributes` 里的 `docs/** -text` 不能删**——Windows 的 autocrlf 会改写产物换行，导致 SRI 哈希与线上文件不一致、浏览器拒绝加载 CSS。
 - 发布产物在 `docs/`，改完后用 `hugo --cleanDestinationDir` 重新构建
 - 主题符号、配色源仍然以 `BRAND.md` 为准；`--accent*` 三个值要和品牌色保持一致
