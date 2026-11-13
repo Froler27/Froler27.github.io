@@ -282,6 +282,54 @@
     background: var(--glass);
 }
 
+/* 2D / 3D 视图切换 */
+.graph-view {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 3px;
+    background: var(--glass);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+}
+
+.graph-view button {
+    min-width: 40px;
+    padding: 6px 10px;
+    color: var(--secondary);
+    background: transparent;
+    border: 0;
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    transition: color 0.22s, background-color 0.22s, box-shadow 0.22s;
+}
+
+.graph-view button:hover {
+    color: var(--accent);
+}
+
+.graph-view button[aria-pressed="true"] {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--accent) 13%, transparent);
+    box-shadow: 0 6px 18px -14px var(--glow-strong);
+}
+
+:root[data-theme="light"] .graph-view button[aria-pressed="true"] {
+    color: var(--accent-deep);
+    background: color-mix(in srgb, var(--accent-deep) 11%, transparent);
+}
+
+@media (prefers-color-scheme: light) {
+    :root[data-theme="auto"] .graph-view button[aria-pressed="true"] {
+        color: var(--accent-deep);
+        background: color-mix(in srgb, var(--accent-deep) 11%, transparent);
+    }
+}
+
 @keyframes graph-motion-pulse {
     0%, 100% { opacity: 1; transform: scale(1); }
     50% { opacity: 0.4; transform: scale(0.72); }
@@ -818,6 +866,11 @@ html.js .graph-nojs {
     .graph-reset {
         height: 36px;
         padding: 0 12px;
+    }
+
+    .graph-view button {
+        min-width: 36px;
+        padding: 5px 8px;
     }
 
     .graph-stage {

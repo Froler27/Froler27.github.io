@@ -38,10 +38,10 @@
 
 <section class="graph-page">
   <header class="graph-head">
-    <p class="eyebrow"><span class="chip-dot"></span> 3D KNOWLEDGE MAP · 已掌握的知识</p>
+    <p class="eyebrow"><span class="chip-dot"></span> KNOWLEDGE MAP · 2D / 3D</p>
     <h1>知识<span class="gradient-text">图谱</span></h1>
     <p class="graph-lead">
-      每篇笔记是一个知识点，这里把它们连成一张可旋转的 3D 图。<strong>点击任意名词</strong>可以跳到讲它的那篇文章；
+      每篇笔记是一个知识点，这里把它们连成一张可旋转的 3D 图（也能切回 2D 平面）。<strong>点击任意名词</strong>可以跳到讲它的那篇文章；
       拖动旋转、滚轮缩放，看看这些概念在空间里怎么互相咬合。
     </p>
     <ul class="graph-meta" aria-label="图谱统计">
@@ -69,6 +69,11 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
         <label class="visually-hidden" for="graph-query">搜索概念</label>
         <input id="graph-query" type="search" placeholder="搜索名词…" autocomplete="off" spellcheck="false">
+      </div>
+
+      <div class="graph-view" role="group" aria-label="视图模式">
+        <button type="button" data-view="3d" aria-pressed="true" title="3D 透视视图">3D</button>
+        <button type="button" data-view="2d" aria-pressed="false" title="2D 平面视图">2D</button>
       </div>
 
       <button type="button" class="graph-reset" id="graph-reset" title="重置筛选和视图">

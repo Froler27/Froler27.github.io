@@ -1,5 +1,7 @@
-/* 知识图谱（3D）：透视投影 + 环绕相机 + 缓慢自转 + 拖拽旋转
-   布局仍用 2D 力导向算 x/y，z 用来做空间纵深；投影、排序、交互全部在 3D 里做。 */
+/* 知识图谱：2D 平面视图 / 3D 透视视图可切换
+   - 2D：正交投影，拖动平移、滚轮/双指缩放
+   - 3D：透视投影 + 环绕相机，拖动旋转、滚轮/双指缩放
+   z 坐标只用于 3D 深度；两种视图共用同一套布局与交互。 */
 (() => {
     const shell = document.getElementById("graph-shell");
     const stage = document.getElementById("graph-stage");
@@ -10,6 +12,8 @@
     const searchInput = document.getElementById("graph-query");
     const resetBtn = document.getElementById("graph-reset");
     const motionBtn = document.getElementById("graph-motion");
+    const viewButtons = [...document.querySelectorAll(".graph-view button")];
+    const hintDrag = document.querySelector(".graph-hint span:first-child");
     if (!shell || !stage || !canvas || !dataEl) return;
 
     let data;
@@ -52,20 +56,44 @@
     });
     if (!nodes.length) return;
 
-    /* ---------------- 确定性随机 ---------------- */
+    /* ---------------- 基础工具 ---------------- */
+    const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
     const rand = (seed) => {
         const value = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
         return value - Math.floor(value);
     };
 
-    /* ---------------- 坐标与相机 ---------------- */
-    const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+    function hexToRgb(hex) {
+        const value = hex.replace("#", "");
+        const full = value.length === 3 ? value.split("").map((c) => c + c).join("") : value;
+        return [
+            parseInt(full.slice(0, 2), 16),
+            parseInt(full.slice(2, 4), 16),
+            parseInt(full.slice(4, 6), 16),
+        ];
+    }
 
-    const camera = {
-        distance: 1300,
-        focal: 1050,
-    };
+    function rgba(hex, alpha) {
+        const [r, g, b] = hexToRgb(hex);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    }
 
+    function mix(hex, target, amount) {
+        const [r, g, b] = hexToRgb(hex);
+        const [tr, tg, tb] = hexToRgb(target);
+        const toHex = (value) => Math.round(value).toString(16).padStart(2, "0");
+        return `#${toHex(r + (tr - r) * amount)}${toHex(g + (tg - g) * amount)}${toHex(
+            b + (tb - b) * amount
+        )}`;
+    }
+
+    function domainColor(node) {
+        const domain = domainById.get(node.domain);
+        return domain ? domain.color : "#38bdf8";
+    }
+
+    /* ---------------- 相机 ---------------- */
+    const camera3d = { distance: 1300, focal: 1050 };
     const cam = {
         yaw: -0.08,
         pitch: -0.1,
@@ -78,6 +106,14 @@
         zoomUser: false,
         parallaxYaw: 0,
         parallaxPitch: 0,
+    };
+    const cam2d = {
+        zoom: 1,
+        homeZoom: 1,
+        tx: 0,
+        ty: 0,
+        zoomUser: false,
+        panned: false,
     };
 
     const state = {
@@ -97,23 +133,27 @@
         pinch: null,
         lastInteraction: 0,
         projected: new Map(),
-        view: { yaw: cam.yaw, pitch: cam.pitch, zoom: 1 },
+        mode: "3d",
+        mix: 1,
+        modeAnim: { active: false, from: 1, to: 1, start: 0 },
+        view3d: { yaw: cam.yaw, pitch: cam.pitch, zoom: 1 },
+        view2d: { zoom: 1, tx: 0, ty: 0 },
     };
 
-    function projectPoint(x, y, z, yaw = state.view.yaw, pitch = state.view.pitch, zoom = state.view.zoom) {
+    // mix：1 = 3D，0 = 2D
+    function project3D(x, y, z, yaw = state.view3d.yaw, pitch = state.view3d.pitch, zoom = state.view3d.zoom) {
         const cosY = Math.cos(yaw);
         const sinY = Math.sin(yaw);
         const x1 = x * cosY - z * sinY;
         const z1 = x * sinY + z * cosY;
-
         const cosP = Math.cos(pitch);
         const sinP = Math.sin(pitch);
         const y2 = y * cosP - z1 * sinP;
         const z2 = y * sinP + z1 * cosP;
 
-        const distance = camera.distance + z2;
+        const distance = camera3d.distance + z2;
         if (distance < 140) return null;
-        const scale = (camera.focal / distance) * zoom;
+        const scale = (camera3d.focal / distance) * zoom;
         return {
             x: state.width / 2 + x1 * scale,
             y: state.height / 2 + y2 * scale,
@@ -122,7 +162,31 @@
         };
     }
 
-    /* ---------------- 领域锚点 + 2D 布局 + z 深度 ---------------- */
+    function project2D(x, y, zoom = state.view2d.zoom, tx = state.view2d.tx, ty = state.view2d.ty) {
+        return {
+            x: state.width / 2 + x * zoom + tx,
+            y: state.height / 2 + y * zoom + ty,
+            depth: camera3d.distance,
+            scale: zoom,
+        };
+    }
+
+    function projectPoint(x, y, z) {
+        if (state.mix <= 0.001) return project2D(x, y);
+        const p3 = project3D(x, y, z);
+        if (state.mix >= 0.999) return p3;
+        if (!p3) return project2D(x, y);
+        const p2 = project2D(x, y);
+        const t = state.mix;
+        return {
+            x: p3.x * t + p2.x * (1 - t),
+            y: p3.y * t + p2.y * (1 - t),
+            depth: p3.depth * t + p2.depth * (1 - t),
+            scale: p3.scale * t + p2.scale * (1 - t),
+        };
+    }
+
+    /* ---------------- 布局 ---------------- */
     const anchorById = new Map();
     let layoutMode = null;
 
@@ -183,7 +247,6 @@
         assignDepth();
     }
 
-    // 把布局重心挪到原点，并压扁 y 方向，让 3D 透视有更多横向空间
     function centerAndFlatten() {
         let minX = Infinity;
         let maxX = -Infinity;
@@ -199,13 +262,12 @@
         const centerY = (minY + maxY) / 2;
         nodes.forEach((node) => {
             node.x -= centerX;
-            node.y = (node.y - centerY) * 0.62;
+            node.y = (node.y - centerY) * 0.76;
             node.anchorX -= centerX;
-            node.anchorY = (node.anchorY - centerY) * 0.62;
+            node.anchorY = (node.anchorY - centerY) * 0.76;
         });
     }
 
-    // 领域之间拉开前后层次，再给每个节点一点随机纵深
     function assignDepth() {
         const domainDepth = new Map();
         domainList.forEach((domain, index) => {
@@ -219,7 +281,6 @@
         });
     }
 
-    /* ---------------- 2D 力导向（只算初始 x/y） ---------------- */
     const TARGET_LINK = 138;
     const REPULSE = 5400;
 
@@ -295,19 +356,18 @@
         }
     }
 
-    /* ---------------- 舞台尺寸 / 适配缩放 ---------------- */
-    function computeHomeZoom() {
+    /* ---------------- 适配缩放 ---------------- */
+    function computeHomeZoom3D() {
         if (!state.width || !state.height) return;
         const padX = state.width >= 700 ? 64 : 30;
         const padY = state.width >= 700 ? 56 : 30;
         let extentX = 1;
         let extentY = 1;
 
-        // 采样一圈 yaw，保证自动旋转时节点始终在画面内
         for (let step = 0; step < 24; step += 1) {
             const yaw = (step / 24) * Math.PI * 2;
             nodes.forEach((node) => {
-                const point = projectPoint(node.x, node.y, node.z, yaw, cam.homePitch, 1);
+                const point = project3D(node.x, node.y, node.z, yaw, cam.homePitch, 1);
                 if (!point) return;
                 const radius = (node.radius + 10) * point.scale;
                 extentX = Math.max(extentX, Math.abs(point.x - state.width / 2) + radius);
@@ -323,6 +383,34 @@
         if (!cam.zoomUser) cam.zoom = cam.homeZoom;
     }
 
+    function computeHomeZoom2D() {
+        if (!state.width || !state.height) return;
+        const padX = state.width >= 700 ? 72 : 34;
+        const padY = state.width >= 700 ? 60 : 34;
+        let minX = Infinity;
+        let maxX = -Infinity;
+        let minY = Infinity;
+        let maxY = -Infinity;
+        nodes.forEach((node) => {
+            minX = Math.min(minX, node.x - node.radius);
+            maxX = Math.max(maxX, node.x + node.radius);
+            minY = Math.min(minY, node.y - node.radius);
+            maxY = Math.max(maxY, node.y + node.radius);
+        });
+        const width = Math.max(1, maxX - minX);
+        const height = Math.max(1, maxY - minY);
+        const zoom = Math.min(
+            (state.width - padX * 2) / width,
+            (state.height - padY * 2) / height
+        );
+        cam2d.homeZoom = clamp(zoom, 0.2, 3);
+        if (!cam2d.zoomUser) cam2d.zoom = cam2d.homeZoom;
+        if (!cam2d.panned) {
+            cam2d.tx = 0;
+            cam2d.ty = 0;
+        }
+    }
+
     function resize() {
         const rect = stage.getBoundingClientRect();
         state.width = Math.max(320, rect.width);
@@ -334,14 +422,13 @@
         canvas.style.height = `${state.height}px`;
 
         const nextMode = state.width < 700 ? "compact" : "wide";
-        if (nextMode !== layoutMode) {
-            buildLayout(nextMode);
-        }
-        computeHomeZoom();
+        if (nextMode !== layoutMode) buildLayout(nextMode);
+        computeHomeZoom3D();
+        computeHomeZoom2D();
         draw();
     }
 
-    /* ---------------- 主题 / 调色 ---------------- */
+    /* ---------------- 主题色 ---------------- */
     function themePalette() {
         const attr = root.dataset.theme;
         const dark =
@@ -353,43 +440,12 @@
             labelMuted: dark ? "rgba(150,170,198,0.62)" : "rgba(91,107,133,0.68)",
             edge: dark ? 0.33 : 0.25,
             innerMix: dark ? 0.58 : 0.34,
-            halo: dark ? 0.16 : 0.1,
             floor: dark ? 0.11 : 0.09,
             dust: dark ? 0.5 : 0.35,
             bg: dark ? "#05080f" : "#f4f8ff",
         };
     }
 
-    function hexToRgb(hex) {
-        const value = hex.replace("#", "");
-        const full = value.length === 3 ? value.split("").map((c) => c + c).join("") : value;
-        return [
-            parseInt(full.slice(0, 2), 16),
-            parseInt(full.slice(2, 4), 16),
-            parseInt(full.slice(4, 6), 16),
-        ];
-    }
-
-    function rgba(hex, alpha) {
-        const [r, g, b] = hexToRgb(hex);
-        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-    }
-
-    function mix(hex, target, amount) {
-        const [r, g, b] = hexToRgb(hex);
-        const [tr, tg, tb] = hexToRgb(target);
-        const toHex = (value) => Math.round(value).toString(16).padStart(2, "0");
-        return `#${toHex(r + (tr - r) * amount)}${toHex(g + (tg - g) * amount)}${toHex(
-            b + (tb - b) * amount
-        )}`;
-    }
-
-    function domainColor(node) {
-        const domain = domainById.get(node.domain);
-        return domain ? domain.color : "#38bdf8";
-    }
-
-    /* ---------------- 动态偏移 ---------------- */
     function nodeBob(node) {
         if (!state.ambient) return { x: 0, y: 0, z: 0 };
         const t = state.time;
@@ -400,28 +456,31 @@
         };
     }
 
-    /* ---------------- 背景：透视地面 + 空间尘埃 ---------------- */
+    /* ---------------- 3D 背景 ---------------- */
     const FLOOR_Y = 430;
     const FLOOR_EXTENT = 1150;
     const FLOOR_STEP = 150;
+    const floorAlpha = () => 1 - state.mix;
 
     function drawFloor(palette) {
+        const visibility = floorAlpha();
+        if (visibility < 0.02) return;
         const lines = [];
         for (let x = -FLOOR_EXTENT; x <= FLOOR_EXTENT; x += FLOOR_STEP) {
             lines.push([
-                projectPoint(x, FLOOR_Y, -FLOOR_EXTENT),
-                projectPoint(x, FLOOR_Y, FLOOR_EXTENT),
+                project3D(x, FLOOR_Y, -FLOOR_EXTENT),
+                project3D(x, FLOOR_Y, FLOOR_EXTENT),
             ]);
         }
         for (let z = -FLOOR_EXTENT; z <= FLOOR_EXTENT; z += FLOOR_STEP) {
             lines.push([
-                projectPoint(-FLOOR_EXTENT, FLOOR_Y, z),
-                projectPoint(FLOOR_EXTENT, FLOOR_Y, z),
+                project3D(-FLOOR_EXTENT, FLOOR_Y, z),
+                project3D(FLOOR_EXTENT, FLOOR_Y, z),
             ]);
         }
         const color = palette.dark ? "#38bdf8" : "#0284c7";
         ctx.save();
-        ctx.strokeStyle = rgba(color, palette.floor);
+        ctx.strokeStyle = rgba(color, palette.floor * visibility);
         ctx.lineWidth = 1;
         ctx.beginPath();
         lines.forEach(([a, b]) => {
@@ -432,8 +491,7 @@
         });
         ctx.stroke();
 
-        // 地面中心的光池
-        const center = projectPoint(0, FLOOR_Y, 0);
+        const center = project3D(0, FLOOR_Y, 0);
         if (center) {
             const glow = ctx.createRadialGradient(
                 center.x,
@@ -443,7 +501,7 @@
                 center.y,
                 state.height * 0.42
             );
-            glow.addColorStop(0, rgba(color, palette.dark ? 0.13 : 0.09));
+            glow.addColorStop(0, rgba(color, (palette.dark ? 0.13 : 0.09) * visibility));
             glow.addColorStop(1, rgba(color, 0));
             ctx.fillStyle = glow;
             ctx.beginPath();
@@ -462,17 +520,21 @@
     }));
 
     function drawDust(palette) {
+        const visibility = floorAlpha();
+        if (visibility < 0.02) return;
         const color = palette.dark ? "#7dd3fc" : "#0369a1";
+        const t = state.ambient ? state.time : 0;
         ctx.save();
         dust.forEach((item) => {
-            const t = state.ambient ? state.time : 0;
-            const x = item.x + Math.sin(t * 0.1 + item.phase) * 12;
-            const y = item.y + Math.cos(t * 0.13 + item.phase) * 8;
-            const point = projectPoint(x, y, item.z);
+            const point = project3D(
+                item.x + Math.sin(t * 0.1 + item.phase) * 12,
+                item.y + Math.cos(t * 0.13 + item.phase) * 8,
+                item.z
+            );
             if (!point) return;
             if (point.x < -20 || point.x > state.width + 20 || point.y < -20 || point.y > state.height + 20) return;
-            const depthFade = clamp(1.25 - (point.depth - 900) / 1600, 0.15, 0.8);
-            ctx.fillStyle = rgba(color, palette.dust * depthFade * 0.55);
+            const fade = clamp(1.25 - (point.depth - 900) / 1600, 0.15, 0.8);
+            ctx.fillStyle = rgba(color, palette.dust * fade * 0.55 * visibility);
             ctx.beginPath();
             ctx.arc(point.x, point.y, item.r * clamp(point.scale, 0.5, 1.4), 0, Math.PI * 2);
             ctx.fill();
@@ -480,7 +542,7 @@
         ctx.restore();
     }
 
-    /* ---------------- 过滤状态 ---------------- */
+    /* ---------------- 过滤 ---------------- */
     function matches(node) {
         const query = state.query.trim().toLowerCase();
         const domainOk = state.filter === "all" || node.domain === state.filter;
@@ -497,37 +559,46 @@
         return { anyFilter, matchMap, matchedCount };
     }
 
-    /* ---------------- 主绘制 ---------------- */
+    /* ---------------- 绘制 ---------------- */
     function draw() {
         const palette = themePalette();
         const { anyFilter, matchMap } = visibleState();
         const hover = state.hoverId ? byId.get(state.hoverId) : null;
         const hoverNeighbors = hover ? neighbors.get(hover.id) : new Set();
+        const blend = state.mix;
 
-        // 入场镜头：从稍远的侧后方推近；鼠标位置带来一点视差
+        // 入场动画
         let intro = 1;
-        if (state.ambient) {
+        if (state.ambient && state.time > 0) {
             intro = clamp((performance.now() - state.introStart) / 1100, 0, 1);
             intro = 1 - Math.pow(1 - intro, 3);
         }
+
         const parallaxYaw = state.ambient ? cam.parallaxYaw + Math.sin(state.time * 0.23) * 0.014 : 0;
         const parallaxPitch = state.ambient
             ? cam.parallaxPitch + Math.sin(state.time * 0.17) * 0.018
             : 0;
-        state.view = {
+
+        state.view3d = {
             yaw: cam.yaw - (1 - intro) * 0.32 + parallaxYaw,
             pitch: clamp(cam.pitch + parallaxPitch, -0.7, 0.7),
             zoom: cam.zoom * (0.86 + 0.14 * intro),
+        };
+        state.view2d = {
+            zoom: cam2d.zoom,
+            tx: cam2d.tx,
+            ty: cam2d.ty,
         };
 
         ctx.setTransform(1, 0, 0, 1, 0, 0);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         ctx.setTransform(state.dpr, 0, 0, state.dpr, 0, 0);
 
-        drawFloor(palette);
-        drawDust(palette);
+        if (blend > 0.02) {
+            drawFloor(palette);
+            drawDust(palette);
+        }
 
-        // 投影缓存
         const projected = new Map();
         const projectedList = [];
         nodes.forEach((node) => {
@@ -546,37 +617,40 @@
             maxDepth = Math.max(maxDepth, point.depth);
         });
         const depthRange = Math.max(1, maxDepth - minDepth);
-        const depthFade = (point) =>
-            clamp(1 - (point.depth - minDepth) / depthRange, 0, 1) * 0.55 + 0.45;
+        const depthFade = (point) => {
+            const fade = clamp(1 - (point.depth - minDepth) / depthRange, 0, 1) * 0.55 + 0.45;
+            return fade * blend + (1 - blend);
+        };
 
         state.projected = projected;
 
-        // 3D 深度辅助线：从节点垂到地面，强化“浮在空间里”的感觉
-        ctx.save();
-        ctx.setLineDash([2, 5]);
-        projectedList.forEach(({ node, point }) => {
-            if (node.size < 2) return;
-            const bob = nodeBob(node);
-            const foot = projectPoint(node.x + bob.x, FLOOR_Y, node.z + bob.z);
-            if (!foot) return;
-            const alpha = 0.2 * depthFade(point);
-            ctx.strokeStyle = rgba(domainColor(node), alpha);
-            ctx.lineWidth = 0.8;
-            ctx.beginPath();
-            ctx.moveTo(point.x, point.y + Math.max(3.5, node.radius * point.scale));
-            ctx.lineTo(foot.x, foot.y);
-            ctx.stroke();
-
-            ctx.setLineDash([]);
-            ctx.fillStyle = rgba(domainColor(node), alpha * 1.8);
-            ctx.beginPath();
-            ctx.arc(foot.x, foot.y, 1.6, 0, Math.PI * 2);
-            ctx.fill();
+        // 3D 深度辅助线
+        if (blend > 0.02) {
+            ctx.save();
             ctx.setLineDash([2, 5]);
-        });
-        ctx.restore();
+            projectedList.forEach(({ node, point }) => {
+                if (node.size < 2) return;
+                const bob = nodeBob(node);
+                const foot = project3D(node.x + bob.x, FLOOR_Y, node.z + bob.z);
+                if (!foot) return;
+                const alpha = 0.2 * depthFade(point) * blend;
+                ctx.strokeStyle = rgba(domainColor(node), alpha);
+                ctx.lineWidth = 0.8;
+                ctx.beginPath();
+                ctx.moveTo(point.x, point.y + Math.max(3.5, node.radius * point.scale));
+                ctx.lineTo(foot.x, foot.y);
+                ctx.stroke();
+                ctx.setLineDash([]);
+                ctx.fillStyle = rgba(domainColor(node), alpha * 1.8);
+                ctx.beginPath();
+                ctx.arc(foot.x, foot.y, 1.6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.setLineDash([2, 5]);
+            });
+            ctx.restore();
+        }
 
-        // 先画远处的边，再画近处的边
+        // 边
         const edgeDraws = [];
         edges.forEach((edge, edgeIndex) => {
             const a = projected.get(edge.a.id);
@@ -584,7 +658,9 @@
             if (!a || !b) return;
             edgeDraws.push({ edge, a, b, edgeIndex });
         });
-        edgeDraws.sort((a, b) => b.a.point.depth + b.b.point.depth - (a.a.point.depth + a.b.point.depth));
+        edgeDraws.sort(
+            (a, b) => b.a.point.depth + b.b.point.depth - (a.a.point.depth + a.b.point.depth)
+        );
 
         edgeDraws.forEach(({ edge, a, b, edgeIndex }) => {
             const matchA = matchMap.get(edge.a.id);
@@ -622,7 +698,6 @@
             ctx.quadraticCurveTo(controlX, controlY, bx, by);
             ctx.stroke();
 
-            // 沿边流动的能量点：沿二次曲线插值，看起来像 3D 空间里的能量流
             if (state.ambient) {
                 const phase = (((edge.a.index * 0.17 + edge.b.index * 0.11 + edgeIndex * 0.07) % 1) + 1) % 1;
                 const progress = (state.time * (connected ? 0.45 : 0.13) + phase) % 1;
@@ -644,12 +719,11 @@
             }
         });
 
-        // 节点：由远到近
+        // 节点
         const drawList = projectedList.slice().sort((a, b) => b.point.depth - a.point.depth);
         drawList.forEach(({ node, point }) => {
             const rawColor = domainColor(node);
             const fade = depthFade(point);
-            // 远处节点往背景色里退一点，形成空气透视
             const color = fade < 0.78 ? mix(rawColor, palette.bg, (0.78 - fade) * 0.55) : rawColor;
             const matched = matchMap.get(node.id);
             const related = hover ? node.id === hover.id || hoverNeighbors.has(node.id) : false;
@@ -659,8 +733,7 @@
             if (hover && related) alpha = fade;
 
             const hovered = hover && node.id === hover.id;
-            const scale = point.scale;
-            const radius = Math.max(3.5, node.radius * scale) * (hovered ? 1.12 : 1);
+            const radius = Math.max(3.5, node.radius * point.scale) * (hovered ? 1.12 : 1);
             ctx.globalAlpha = alpha;
 
             const glow = ctx.createRadialGradient(point.x, point.y, radius * 0.2, point.x, point.y, radius * 2.8);
@@ -688,7 +761,7 @@
             ctx.fill();
 
             ctx.strokeStyle = palette.dark ? rgba("#ffffff", 0.5 * fade) : rgba("#0b1220", 0.28 * fade);
-            ctx.lineWidth = Math.max(0.6, 1.1 * clamp(scale, 0.6, 1.6));
+            ctx.lineWidth = Math.max(0.6, 1.1 * clamp(point.scale, 0.6, 1.6));
             ctx.beginPath();
             ctx.arc(point.x, point.y, radius - 0.5, 0, Math.PI * 2);
             ctx.stroke();
@@ -712,7 +785,7 @@
             ctx.globalAlpha = 1;
         });
 
-        // 标签：3D 投影后按重要性避让
+        // 标签
         const compact = state.width < 700;
         const labelRank = (entry) => {
             if (hover && entry.node.id === hover.id) return 100;
@@ -753,6 +826,7 @@
                     h: fontSize + 6,
                 };
                 if (!important && placedLabels.some((other) => overlaps(rect, other))) return;
+
                 let alpha = fade;
                 if (anyFilter && !matched) alpha = 0.16 * fade;
                 if (hover && !related) alpha = 0.12 * fade;
@@ -772,7 +846,7 @@
         ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
 
-    /* ---------------- 命中测试（屏幕坐标） ---------------- */
+    /* ---------------- 命中测试 ---------------- */
     function nodeAtScreen(px, py) {
         let found = null;
         let best = Infinity;
@@ -855,7 +929,8 @@
                 const [a, b] = [...state.pointers.values()];
                 state.pinch = {
                     startDist: Math.hypot(a.x - b.x, a.y - b.y) || 1,
-                    startZoom: cam.zoom,
+                    startZoom3d: cam.zoom,
+                    startZoom2d: cam2d.zoom,
                 };
                 state.dragging = null;
                 return;
@@ -885,8 +960,14 @@
             if (state.pinch && state.pointers.size >= 2) {
                 const [a, b] = [...state.pointers.values()];
                 const dist = Math.hypot(a.x - b.x, a.y - b.y) || 1;
-                cam.zoom = clamp((state.pinch.startZoom * dist) / state.pinch.startDist, cam.homeZoom * 0.45, cam.homeZoom * 4);
-                cam.zoomUser = true;
+                const ratio = dist / state.pinch.startDist;
+                if (state.mode === "2d") {
+                    cam2d.zoom = clamp(state.pinch.startZoom2d * ratio, cam2d.homeZoom * 0.5, cam2d.homeZoom * 4);
+                    cam2d.zoomUser = true;
+                } else {
+                    cam.zoom = clamp(state.pinch.startZoom3d * ratio, cam.homeZoom * 0.45, cam.homeZoom * 4);
+                    cam.zoomUser = true;
+                }
                 if (!state.ambient) draw();
                 return;
             }
@@ -906,12 +987,18 @@
                     drag.moved = true;
                 }
 
-                cam.yaw += dx * 0.0065;
-                cam.pitch = clamp(cam.pitch + dy * 0.0035, -0.7, 0.7);
-                lastDrag = {
-                    yaw: (dx * 0.0065) / (dt / 1000),
-                    pitch: (dy * 0.0035) / (dt / 1000),
-                };
+                if (state.mode === "2d") {
+                    cam2d.tx += dx;
+                    cam2d.ty += dy;
+                    cam2d.panned = true;
+                } else {
+                    cam.yaw += dx * 0.0065;
+                    cam.pitch = clamp(cam.pitch + dy * 0.0035, -0.7, 0.7);
+                    lastDrag = {
+                        yaw: (dx * 0.0065) / (dt / 1000),
+                        pitch: (dy * 0.0035) / (dt / 1000),
+                    };
+                }
                 state.pointerScreen = point;
 
                 if (!state.ambient) draw();
@@ -937,7 +1024,7 @@
                 window.location.href = drag.node.url;
                 return;
             }
-            if (lastDrag) {
+            if (state.mode === "3d" && lastDrag) {
                 cam.vYaw = clamp(lastDrag.yaw * 0.16, -1.6, 1.6);
                 cam.vPitch = clamp(lastDrag.pitch * 0.16, -0.9, 0.9);
             }
@@ -970,13 +1057,22 @@
         "wheel",
         (event) => {
             event.preventDefault();
-            cam.zoom = clamp(
-                cam.zoom * Math.exp(-event.deltaY * 0.0012),
-                cam.homeZoom * 0.45,
-                cam.homeZoom * 4
-            );
-            cam.zoomUser = true;
+            const point = stagePoint(event);
+            const factor = Math.exp(-event.deltaY * 0.0012);
             state.lastInteraction = performance.now();
+
+            if (state.mode === "2d") {
+                const worldX = (point.x - state.width / 2 - cam2d.tx) / cam2d.zoom;
+                const worldY = (point.y - state.height / 2 - cam2d.ty) / cam2d.zoom;
+                cam2d.zoom = clamp(cam2d.zoom * factor, cam2d.homeZoom * 0.5, cam2d.homeZoom * 4);
+                cam2d.tx = point.x - state.width / 2 - worldX * cam2d.zoom;
+                cam2d.ty = point.y - state.height / 2 - worldY * cam2d.zoom;
+                cam2d.zoomUser = true;
+                cam2d.panned = true;
+            } else {
+                cam.zoom = clamp(cam.zoom * factor, cam.homeZoom * 0.45, cam.homeZoom * 4);
+                cam.zoomUser = true;
+            }
             if (!state.ambient) draw();
         },
         { passive: false }
@@ -987,15 +1083,28 @@
     let lastFrame = 0;
     let lastPaint = 0;
 
+    function updateModeAnimation(now) {
+        if (!state.modeAnim.active) return;
+        const progress = clamp((now - state.modeAnim.start) / 520, 0, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        state.mix = state.modeAnim.from + (state.modeAnim.to - state.modeAnim.from) * eased;
+        if (progress >= 1) {
+            state.mix = state.modeAnim.to;
+            state.modeAnim.active = false;
+        }
+    }
+
     function frame(now) {
         loopHandle = 0;
         const dt = Math.min(0.05, Math.max(0, (now - (lastFrame || now)) / 1000));
         lastFrame = now;
         state.time = now / 1000;
 
+        updateModeAnimation(now);
+
         if (state.ambient) {
             const idle = now - state.lastInteraction > 1200;
-            if (idle && !state.dragging && state.pointers.size === 0) {
+            if (state.mode === "3d" && state.mix > 0.5 && idle && !state.dragging && state.pointers.size === 0) {
                 cam.yaw += dt * 0.1;
             }
 
@@ -1010,7 +1119,6 @@
                 cam.vPitch = 0;
             }
 
-            // 鼠标视差：镜头轻微追随指针，空间感更明显
             const targetYaw = state.pointerScreen
                 ? (state.pointerScreen.x / state.width - 0.5) * 0.05
                 : 0;
@@ -1021,31 +1129,16 @@
             cam.parallaxYaw += (targetYaw - cam.parallaxYaw) * ease;
             cam.parallaxPitch += (targetPitch - cam.parallaxPitch) * ease;
 
-            // 高刷屏上限制到 ~60fps，避免无意义的重绘
             if (now - lastPaint >= 15) {
                 lastPaint = now;
                 draw();
             }
+        } else if (state.modeAnim.active) {
+            draw();
+        }
 
-            // 相机持续旋转时，指针下的节点会变化，实时更新悬停
-            if (state.pointerScreen && !state.dragging && state.pointers.size === 0) {
-                const node = nodeAtScreen(state.pointerScreen.x, state.pointerScreen.y);
-                const next = node ? node.id : null;
-                if (next !== state.hoverId) {
-                    state.hoverId = next;
-                    if (node) {
-                        updateTooltip(node, state.pointerScreen.x, state.pointerScreen.y);
-                        canvas.classList.add("is-hovering");
-                    } else {
-                        hideTooltip();
-                        canvas.classList.remove("is-hovering");
-                    }
-                }
-            }
-
-            if (!document.hidden && state.inView) {
-                loopHandle = window.requestAnimationFrame(frame);
-            }
+        if ((state.ambient || state.modeAnim.active) && !document.hidden && state.inView) {
+            loopHandle = window.requestAnimationFrame(frame);
         }
     }
 
@@ -1070,7 +1163,7 @@
         if (!document.hidden) ensureLoop();
     });
 
-    /* ---------------- 筛选 / 搜索 / 重置 / 动态开关 ---------------- */
+    /* ---------------- 筛选 / 搜索 / 重置 / 动态 / 视图模式 ---------------- */
     const chips = [...document.querySelectorAll(".graph-chip")];
 
     function applyFilterUI() {
@@ -1112,8 +1205,15 @@
         cam.pitch = cam.homePitch;
         cam.vYaw = 0;
         cam.vPitch = 0;
+        cam.parallaxYaw = 0;
+        cam.parallaxPitch = 0;
         cam.zoomUser = false;
         cam.zoom = cam.homeZoom;
+        cam2d.zoom = cam2d.homeZoom;
+        cam2d.zoomUser = false;
+        cam2d.tx = 0;
+        cam2d.ty = 0;
+        cam2d.panned = false;
         applyFilterUI();
         if (state.ambient) ensureLoop();
     });
@@ -1143,6 +1243,52 @@
         });
     }
 
+    function syncViewUI() {
+        viewButtons.forEach((button) => {
+            const active = button.dataset.view === state.mode;
+            button.setAttribute("aria-pressed", active ? "true" : "false");
+            button.classList.toggle("is-active", active);
+        });
+        if (hintDrag) hintDrag.textContent = state.mode === "3d" ? "拖动旋转" : "拖动平移";
+        canvas.setAttribute(
+            "aria-label",
+            state.mode === "3d"
+                ? "可旋转的 3D 知识图谱画布：节点是概念，连线是关系，点击节点打开对应文章。"
+                : "2D 知识图谱画布：节点是概念，连线是关系，点击节点打开对应文章。"
+        );
+    }
+
+    function setMode(mode) {
+        if (mode !== "2d" && mode !== "3d") return;
+        state.mode = mode;
+        try {
+            window.localStorage.setItem("knowledge-view", mode);
+        } catch (error) {
+            /* ignore */
+        }
+        syncViewUI();
+        const target = mode === "3d" ? 1 : 0;
+        if (target === state.mix) return;
+
+        if (!state.ambient || reduceMotion) {
+            state.mix = target;
+            state.modeAnim.active = false;
+            draw();
+            return;
+        }
+        state.modeAnim = {
+            active: true,
+            from: state.mix,
+            to: target,
+            start: performance.now(),
+        };
+        ensureLoop();
+    }
+
+    viewButtons.forEach((button) => {
+        button.addEventListener("click", () => setMode(button.dataset.view));
+    });
+
     /* ---------------- 主题联动 ---------------- */
     new MutationObserver(() => {
         if (!state.ambient) draw();
@@ -1154,14 +1300,19 @@
     /* ---------------- 初始化 ---------------- */
     function init() {
         let storedMotion = null;
+        let storedView = null;
         try {
             storedMotion = window.localStorage.getItem("knowledge-motion");
+            storedView = window.localStorage.getItem("knowledge-view");
         } catch (error) {
             /* ignore */
         }
         state.ambient = storedMotion ? storedMotion === "on" : !reduceMotion;
+        state.mode = storedView === "2d" ? "2d" : "3d";
+        state.mix = state.mode === "3d" ? 1 : 0;
         state.introStart = performance.now();
         syncMotionUI();
+        syncViewUI();
 
         resize();
         if (state.ambient) {
@@ -1182,7 +1333,7 @@
     }
 
     if (new URLSearchParams(window.location.search).has("debug")) {
-        window.__kg = { cam, state, nodes, projectPoint, computeHomeZoom };
+        window.__kg = { cam, cam2d, state, nodes, projectPoint, computeHomeZoom3D, computeHomeZoom2D };
     }
 
     init();
