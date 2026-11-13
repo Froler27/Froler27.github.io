@@ -38,11 +38,11 @@
 
 <section class="graph-page">
   <header class="graph-head">
-    <p class="eyebrow"><span class="chip-dot"></span> KNOWLEDGE MAP · 已掌握的知识</p>
+    <p class="eyebrow"><span class="chip-dot"></span> 3D KNOWLEDGE MAP · 已掌握的知识</p>
     <h1>知识<span class="gradient-text">图谱</span></h1>
     <p class="graph-lead">
-      每篇笔记是一个知识点，这里把它们连成一张图。<strong>点击任意名词</strong>可以跳到讲它的那篇文章；
-      拖动、缩放看看这些概念是怎么互相咬合的。
+      每篇笔记是一个知识点，这里把它们连成一张可旋转的 3D 图。<strong>点击任意名词</strong>可以跳到讲它的那篇文章；
+      拖动旋转、滚轮缩放，看看这些概念在空间里怎么互相咬合。
     </p>
     <ul class="graph-meta" aria-label="图谱统计">
       <li><span class="graph-meta-num">{{ $conceptCount }}</span><span class="graph-meta-label">概念</span></li>
@@ -83,8 +83,8 @@
 
     <div class="graph-stage" id="graph-stage">
       <canvas id="knowledge-canvas" role="img" aria-describedby="graph-help"
-        aria-label="知识图谱的可视化画布：节点是概念，连线是关系，点击节点打开对应文章。完整的可点击列表在页面下方。"></canvas>
-      <p id="graph-help" class="visually-hidden">可以用鼠标滚轮缩放、拖动空白处平移、拖动节点调整位置，点击节点打开文章。键盘用户请使用下方的领域和文章列表。</p>
+        aria-label="可旋转的 3D 知识图谱画布：节点是概念，连线是关系，点击节点打开对应文章。完整的可点击列表在页面下方。"></canvas>
+      <p id="graph-help" class="visually-hidden">可以拖动旋转视角、滚轮缩放、点击节点打开文章。键盘用户请使用下方的领域和文章列表。</p>
 
       <div class="graph-stats" aria-hidden="true">
         <span><i class="graph-stats-dot"></i>{{ $conceptCount }} 概念</span>
@@ -93,7 +93,7 @@
       </div>
 
       <div class="graph-hint" aria-hidden="true">
-        <span>拖拽平移</span><span>滚轮缩放</span><span>点击名词 → 文章</span>
+        <span>拖动旋转</span><span>滚轮缩放</span><span>点击名词 → 文章</span>
       </div>
 
       <div class="graph-tooltip" id="graph-tooltip" hidden>
@@ -107,7 +107,7 @@
       <div class="graph-empty" id="graph-empty" hidden>没有匹配的概念，换个词试试</div>
 
       <noscript>
-        <div class="graph-nojs">启用 JavaScript 后可以交互浏览图谱；下面的完整索引同样可以点进文章。</div>
+        <div class="graph-nojs">启用 JavaScript 后可以旋转浏览这张 3D 图谱；下面的完整索引同样可以点进文章。</div>
       </noscript>
     </div>
   </div>

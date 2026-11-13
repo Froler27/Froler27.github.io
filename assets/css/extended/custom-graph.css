@@ -309,7 +309,7 @@
 .graph-stage {
     position: relative;
     isolation: isolate;
-    height: clamp(470px, 66vh, 700px);
+    height: clamp(540px, 70vh, 740px);
     overflow: hidden;
     background:
         radial-gradient(720px 420px at 72% 18%, var(--bg-glow-1), transparent 68%),
@@ -835,10 +835,6 @@ html.js .graph-nojs {
         right: 14px;
         bottom: 10px;
         font-size: 9px;
-    }
-
-    .graph-hint span:first-child {
-        display: none;
     }
 
     .graph-hint span:nth-child(2) {
