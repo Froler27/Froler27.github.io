@@ -9,6 +9,7 @@
     const emptyEl = document.getElementById("graph-empty");
     const searchInput = document.getElementById("graph-query");
     const resetBtn = document.getElementById("graph-reset");
+    const motionBtn = document.getElementById("graph-motion");
     if (!shell || !stage || !canvas || !dataEl) return;
 
     let data;
@@ -212,7 +213,40 @@
         dpr: 1,
         width: 0,
         height: 0,
+        ambient: false,
+        time: 0,
+        introStart: 0,
+        inView: true,
+        pointerWorld: null,
     };
+
+    // 节点在屏幕上的“呼吸”位置：静态排版 + 缓慢漂浮 + 鼠标轻微推开
+    function nodeDisplay(node) {
+        if (!state.ambient) return { x: node.x, y: node.y };
+        const phase = node.index * 0.73;
+        let ox = Math.sin(state.time * 0.55 + phase) * 4.2;
+        let oy = Math.cos(state.time * 0.47 + phase * 1.31) * 3.6;
+
+        if (state.pointerWorld && !state.dragging && !state.panning && !state.pinch) {
+            const dx = node.x - state.pointerWorld.x;
+            const dy = node.y - state.pointerWorld.y;
+            const distance = Math.hypot(dx, dy);
+            if (distance < 160 && distance > 0.01) {
+                const push = (1 - distance / 160) * 18;
+                ox += (dx / distance) * push;
+                oy += (dy / distance) * push;
+            }
+        }
+        return { x: node.x + ox, y: node.y + oy };
+    }
+
+    // 首屏入场：节点依次放大淡入
+    function introFactor(node) {
+        if (!state.ambient) return 1;
+        const elapsed = performance.now() - state.introStart - node.index * 16;
+        const progress = clamp(elapsed / 650, 0, 1);
+        return 1 - Math.pow(1 - progress, 3);
+    }
 
     function worldToScreen(x, y) {
         return { x: x * state.scale + state.tx, y: y * state.scale + state.ty };
@@ -314,7 +348,8 @@
         let found = null;
         let bestDistance = Infinity;
         nodes.forEach((node) => {
-            const distance = Math.hypot(node.x - world.x, node.y - world.y);
+            const display = nodeDisplay(node);
+            const distance = Math.hypot(display.x - world.x, display.y - world.y);
             const tolerance = node.radius + Math.max(4, 10 / state.scale);
             if (distance <= tolerance && distance < bestDistance) {
                 bestDistance = distance;
@@ -367,57 +402,91 @@
         });
 
         // 边
-        edges.forEach((edge) => {
+        edges.forEach((edge, edgeIndex) => {
             const a = edge.a;
             const b = edge.b;
+            const pa = nodeDisplay(a);
+            const pb = nodeDisplay(b);
+            const reveal = Math.min(introFactor(a), introFactor(b));
             const matchA = matchMap.get(a.id);
             const matchB = matchMap.get(b.id);
-            let alpha = palette.edge;
-            if (anyFilter) alpha = matchA && matchB ? 0.5 : 0.07;
+            let alpha = palette.edge * reveal;
+            if (anyFilter) alpha = (matchA && matchB ? 0.5 : 0.07) * reveal;
             if (hover) {
                 const connected = a.id === hover.id || b.id === hover.id;
-                alpha = connected ? 0.85 : 0.05;
+                alpha = (connected ? 0.85 : 0.05) * reveal;
             }
-            const gradient = ctx.createLinearGradient(a.x, a.y, b.x, b.y);
+            const gradient = ctx.createLinearGradient(pa.x, pa.y, pb.x, pb.y);
             gradient.addColorStop(0, rgba(domainColor(a), alpha));
             gradient.addColorStop(1, rgba(domainColor(b), alpha));
             ctx.strokeStyle = gradient;
             ctx.lineWidth = (hover && (a.id === hover.id || b.id === hover.id) ? 1.9 : 1.05) / state.scale;
             ctx.beginPath();
-            ctx.moveTo(a.x, a.y);
-            ctx.lineTo(b.x, b.y);
+            ctx.moveTo(pa.x, pa.y);
+            ctx.lineTo(pb.x, pb.y);
             ctx.stroke();
+
+            // 沿边缓慢流动的能量点：让静态布局有“活着”的感觉
+            if (state.ambient) {
+                const connected = hover && (a.id === hover.id || b.id === hover.id);
+                const phase = ((a.index * 0.17 + b.index * 0.11 + edgeIndex * 0.07) % 1 + 1) % 1;
+                const progress = (state.time * (connected ? 0.5 : 0.14) + phase) % 1;
+                const dotAlpha =
+                    (connected ? 0.9 : 0.32) *
+                    reveal *
+                    (anyFilter ? (matchA && matchB ? 1 : 0.2) : 1) *
+                    (hover && !connected ? 0.3 : 1);
+                if (dotAlpha > 0.02) {
+                    ctx.fillStyle = rgba(domainColor(a), dotAlpha);
+                    ctx.beginPath();
+                    ctx.arc(
+                        pa.x + (pb.x - pa.x) * progress,
+                        pa.y + (pb.y - pa.y) * progress,
+                        (connected ? 2.4 : 1.7) / state.scale,
+                        0,
+                        Math.PI * 2
+                    );
+                    ctx.fill();
+                }
+            }
         });
 
         // 节点
         nodes.forEach((node) => {
             const color = domainColor(node);
+            const display = nodeDisplay(node);
+            const reveal = introFactor(node);
             const matched = matchMap.get(node.id);
             const related = hover ? node.id === hover.id || hoverNeighbors.has(node.id) : false;
-            let alpha = 1;
-            if (anyFilter && !matched) alpha = 0.18;
-            if (hover && !related) alpha = 0.16;
-            if (hover && related) alpha = 1;
+            let alpha = reveal;
+            if (anyFilter && !matched) alpha = 0.18 * reveal;
+            if (hover && !related) alpha = 0.16 * reveal;
+            if (hover && related) alpha = reveal;
 
-            const radius = node.radius * (hover && node.id === hover.id ? 1.12 : 1);
+            const breathing = state.ambient ? 1 + Math.sin(state.time * 1.1 + node.index * 0.6) * 0.035 : 1;
+            const radius =
+                node.radius *
+                (hover && node.id === hover.id ? 1.12 : 1) *
+                (0.6 + 0.4 * reveal) *
+                breathing;
             ctx.globalAlpha = alpha;
 
             // 外圈柔光
-            const glow = ctx.createRadialGradient(node.x, node.y, radius * 0.2, node.x, node.y, radius * 2.6);
+            const glow = ctx.createRadialGradient(display.x, display.y, radius * 0.2, display.x, display.y, radius * 2.6);
             glow.addColorStop(0, rgba(color, palette.dark ? 0.3 : 0.22));
             glow.addColorStop(1, rgba(color, 0));
             ctx.fillStyle = glow;
             ctx.beginPath();
-            ctx.arc(node.x, node.y, radius * 2.6, 0, Math.PI * 2);
+            ctx.arc(display.x, display.y, radius * 2.6, 0, Math.PI * 2);
             ctx.fill();
 
             // 主体：亮心玻璃球
             const body = ctx.createRadialGradient(
-                node.x - radius * 0.35,
-                node.y - radius * 0.4,
+                display.x - radius * 0.35,
+                display.y - radius * 0.4,
                 radius * 0.15,
-                node.x,
-                node.y,
+                display.x,
+                display.y,
                 radius
             );
             body.addColorStop(0, mix(color, "#ffffff", palette.innerMix));
@@ -425,14 +494,14 @@
             body.addColorStop(1, mix(color, palette.dark ? "#05080f" : "#f4f8ff", palette.dark ? 0.35 : 0.18));
             ctx.fillStyle = body;
             ctx.beginPath();
-            ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+            ctx.arc(display.x, display.y, radius, 0, Math.PI * 2);
             ctx.fill();
 
             // 描边
             ctx.strokeStyle = palette.dark ? rgba("#ffffff", 0.55) : rgba("#0b1220", 0.3);
             ctx.lineWidth = 1.1 / state.scale;
             ctx.beginPath();
-            ctx.arc(node.x, node.y, radius - 0.6 / state.scale, 0, Math.PI * 2);
+            ctx.arc(display.x, display.y, radius - 0.6 / state.scale, 0, Math.PI * 2);
             ctx.stroke();
 
             // hub 内圈装饰
@@ -440,7 +509,7 @@
                 ctx.strokeStyle = rgba("#ffffff", palette.dark ? 0.34 : 0.5);
                 ctx.lineWidth = 0.9 / state.scale;
                 ctx.beginPath();
-                ctx.arc(node.x, node.y, radius * 0.55, 0, Math.PI * 2);
+                ctx.arc(display.x, display.y, radius * 0.55, 0, Math.PI * 2);
                 ctx.stroke();
             }
 
@@ -449,7 +518,7 @@
                 ctx.strokeStyle = rgba(color, 0.9);
                 ctx.lineWidth = 1.6 / state.scale;
                 ctx.beginPath();
-                ctx.arc(node.x, node.y, radius + 5 / state.scale, 0, Math.PI * 2);
+                ctx.arc(display.x, display.y, radius + 5 / state.scale, 0, Math.PI * 2);
                 ctx.stroke();
             }
 
@@ -471,6 +540,9 @@
         [...nodes].sort((a, b) => labelRank(b) - labelRank(a)).forEach((node) => {
             const matched = matchMap.get(node.id);
             const related = hover ? node.id === hover.id || hoverNeighbors.has(node.id) : false;
+            const display = nodeDisplay(node);
+            const reveal = introFactor(node);
+            if (reveal < 0.15) return;
 
             const isHub = node.size === 3;
             const show =
@@ -481,8 +553,8 @@
                 (compact && node.size === 2 && state.scale > 1.12);
             if (!show) return;
 
-            const screen = worldToScreen(node.x, node.y);
-            const radius = node.radius * state.scale;
+            const screen = worldToScreen(display.x, display.y);
+            const radius = node.radius * (0.6 + 0.4 * reveal) * state.scale;
             const fontSize = node.size === 3 ? 13.5 : node.size === 2 ? 12 : 11;
             const offset = radius + 7;
             const important = related || (anyFilter && matched);
@@ -497,9 +569,9 @@
             };
             if (!important && placedLabels.some((other) => overlaps(rect, other))) return;
 
-            let alpha = 1;
-            if (anyFilter && !matched) alpha = 0.2;
-            if (hover && !related) alpha = 0.14;
+            let alpha = reveal;
+            if (anyFilter && !matched) alpha = 0.2 * reveal;
+            if (hover && !related) alpha = 0.14 * reveal;
 
             ctx.globalAlpha = alpha;
             ctx.textAlign = "center";
@@ -516,24 +588,51 @@
         ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
 
-    /* ---------------- 交互 ---------------- */
-    let rafId = 0;
+    /* ---------------- 动画循环（30fps 节流，不可见时暂停） ---------------- */
+    let loopHandle = 0;
     let simulateUntil = 0;
+    let lastPaint = 0;
 
-    function animate(now) {
-        simulate(2);
-        draw();
-        if (now < simulateUntil) {
-            rafId = window.requestAnimationFrame(animate);
-        } else {
-            rafId = 0;
+    function frame(now) {
+        loopHandle = 0;
+        state.time = now / 1000;
+        if (now < simulateUntil) simulate(1);
+
+        if (!document.hidden && state.inView && now - lastPaint >= 32) {
+            lastPaint = now;
+            draw();
+        }
+
+        if ((state.ambient || now < simulateUntil) && !document.hidden && state.inView) {
+            loopHandle = window.requestAnimationFrame(frame);
+        }
+    }
+
+    function ensureLoop() {
+        if (!loopHandle && !document.hidden && state.inView) {
+            lastPaint = 0;
+            loopHandle = window.requestAnimationFrame(frame);
         }
     }
 
     function reheat(duration = 500) {
         simulateUntil = performance.now() + duration;
-        if (!rafId) rafId = window.requestAnimationFrame(animate);
+        ensureLoop();
     }
+
+    if ("IntersectionObserver" in window) {
+        new IntersectionObserver(
+            (entries) => {
+                state.inView = entries[0].isIntersecting;
+                if (state.inView) ensureLoop();
+            },
+            { threshold: 0.05 }
+        ).observe(stage);
+    }
+
+    document.addEventListener("visibilitychange", () => {
+        if (!document.hidden) ensureLoop();
+    });
 
     function updateTooltip(node, px, py) {
         if (!node) {
@@ -657,11 +756,12 @@
             }
 
             if (event.pointerType === "mouse") {
+                state.pointerWorld = screenToWorld(point.x, point.y);
                 const node = nodeAt(point.x, point.y);
                 const nextHover = node ? node.id : null;
                 if (nextHover !== state.hoverId) {
                     state.hoverId = nextHover;
-                    draw();
+                    if (!state.ambient) draw();
                 }
                 if (node) {
                     updateTooltip(node, point.x, point.y);
@@ -709,10 +809,11 @@
     canvas.addEventListener("pointerup", endPointer);
     canvas.addEventListener("pointercancel", endPointer);
     canvas.addEventListener("pointerleave", () => {
+        state.pointerWorld = null;
         if (state.pointers && state.pointers.size === 0) {
             state.hoverId = null;
             hideTooltip();
-            draw();
+            if (!state.ambient) draw();
         }
     });
 
@@ -776,18 +877,61 @@
         applyFilterUI();
     });
 
+    /* ---------------- 动态效果开关 ---------------- */
+    function syncMotionUI() {
+        if (!motionBtn) return;
+        motionBtn.setAttribute("aria-pressed", state.ambient ? "true" : "false");
+        motionBtn.title = state.ambient ? "暂停动态效果" : "继续动态效果";
+    }
+
+    if (motionBtn) {
+        motionBtn.addEventListener("click", () => {
+            state.ambient = !state.ambient;
+            try {
+                window.localStorage.setItem("knowledge-motion", state.ambient ? "on" : "off");
+            } catch (error) {
+                /* 隐私模式下 localStorage 不可用，忽略 */
+            }
+            syncMotionUI();
+            if (state.ambient) {
+                // 重新开启时不要重播入场动画
+                state.introStart = performance.now() - 5000;
+                ensureLoop();
+            } else {
+                draw();
+            }
+        });
+    }
+
     /* ---------------- 主题联动 ---------------- */
-    new MutationObserver(() => draw()).observe(root, {
+    new MutationObserver(() => {
+        if (!state.ambient) draw();
+    }).observe(root, {
         attributes: true,
         attributeFilter: ["data-theme"],
     });
 
     /* ---------------- 初始化 ---------------- */
     function init() {
+        let storedMotion = null;
+        try {
+            storedMotion = window.localStorage.getItem("knowledge-motion");
+        } catch (error) {
+            /* ignore */
+        }
+        state.ambient = storedMotion ? storedMotion === "on" : !reduceMotion;
+        state.introStart = performance.now();
+        syncMotionUI();
+
         resize();
+        if (state.ambient) {
+            ensureLoop();
+        } else {
+            draw();
+        }
+
         // 首帧画完再淡入
         window.requestAnimationFrame(() => {
-            draw();
             shell.classList.add("is-ready");
         });
     }

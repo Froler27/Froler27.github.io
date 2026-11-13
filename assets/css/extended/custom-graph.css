@@ -239,6 +239,59 @@
     transition: color 0.22s, border-color 0.22s, background-color 0.22s;
 }
 
+.graph-motion {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.42rem;
+    height: 38px;
+    padding: 0 14px;
+    color: var(--secondary);
+    background: transparent;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: color 0.22s, border-color 0.22s, background-color 0.22s;
+}
+
+.graph-motion-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--secondary);
+    transition: background-color 0.25s, box-shadow 0.25s;
+}
+
+.graph-motion[aria-pressed="true"] {
+    color: var(--accent);
+    border-color: color-mix(in srgb, var(--accent) 40%, transparent);
+    background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.graph-motion[aria-pressed="true"] .graph-motion-dot {
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent);
+    animation: graph-motion-pulse 1.8s ease-in-out infinite;
+}
+
+.graph-motion:hover {
+    color: var(--accent);
+    border-color: var(--border-strong);
+    background: var(--glass);
+}
+
+@keyframes graph-motion-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.72); }
+}
+
+:root[data-theme="light"] .graph-motion[aria-pressed="true"] {
+    color: var(--accent-deep);
+    border-color: color-mix(in srgb, var(--accent-deep) 40%, transparent);
+}
+
 .graph-reset svg {
     width: 14px;
     height: 14px;
