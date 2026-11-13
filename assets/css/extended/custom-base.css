@@ -322,6 +322,17 @@ button:focus:not(:focus-visible) {
     color: var(--accent);
 }
 
+/* 浅色底上 accent 对比度不够，换成更深的品牌色 */
+:root[data-theme="light"] .eyebrow {
+    color: var(--accent-deep);
+}
+
+@media (prefers-color-scheme: light) {
+    :root[data-theme="auto"] .eyebrow {
+        color: var(--accent-deep);
+    }
+}
+
 .chip {
     display: inline-flex;
     align-items: center;

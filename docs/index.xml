@@ -63,5 +63,12 @@
       <guid>https://quanpu.wang/posts/hello/</guid>
       <description>三件事：读论文、读源码、写渲染器。以及一条写作原则——每篇都要有能被验证的东西。</description>
     </item>
+    <item>
+      <title>知识图谱</title>
+      <link>https://quanpu.wang/knowledge/</link>
+      <pubDate>Mon, 01 Jan 0001 00:00:00 +0000</pubDate>
+      <guid>https://quanpu.wang/knowledge/</guid>
+      <description>把已发布的笔记连成一张可点击的知识地图：每个名词背后都是一篇文章。</description>
+    </item>
   </channel>
 </rss>

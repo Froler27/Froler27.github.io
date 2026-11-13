@@ -1,0 +1,367 @@
+# 知识图谱数据
+#
+# 维护方式：
+# - domains：领域分组，color 用来给节点/连线/索引卡上色
+# - nodes：每个节点是一个名词（概念），article 填 content/posts 下的文件名（不带 .md）
+#          页面渲染时会用 site.GetPage 解析成真实文章链接；找不到 / 草稿会被自动跳过
+# - edges：概念之间的关系，写两个节点 id
+#
+# 新增文章时：加节点（同一个 article 可以挂多个概念）+ 按需要连边即可。
+
+domains:
+  - id: geometry
+    label: 几何与变换
+    hint: 法线、切线、矩阵与逆转置
+    color: "#38bdf8"
+  - id: rotation
+    label: 姿态与旋转
+    hint: 欧拉角、万向锁与四元数
+    color: "#a78bfa"
+  - id: animation
+    label: 骨骼动画
+    hint: 蒙皮、双四元数与引擎实现
+    color: "#34d399"
+  - id: math
+    label: 数学工具
+    hint: 秩、条件数、行列式与逆
+    color: "#fbbf24"
+
+nodes:
+  # ---------- 几何与变换 ----------
+  - id: normal
+    label: 法线
+    domain: geometry
+    article: 法线矩阵
+    size: 3
+    kw: normal 法线向量
+    desc: 垂直于表面的向量，跟着几何走；非均匀缩放下不能直接乘模型矩阵。
+  - id: tangent
+    label: 切向量
+    domain: geometry
+    article: 法线矩阵
+    size: 2
+    kw: tangent
+    desc: 沿表面方向、与法线点乘为零的向量，是推导法线变换的出发点。
+  - id: tangent-plane
+    label: 切平面
+    domain: geometry
+    article: 法线矩阵
+    size: 1
+    kw: 局部平面
+    desc: 表面在某点附近的局部平面，法线就垂直于它。
+  - id: orthogonal-constraint
+    label: 正交约束
+    domain: geometry
+    article: 法线矩阵
+    size: 1
+    kw: 垂直 点乘 n·t=0
+    desc: n·t = 0——法线必须始终垂直于切平面，这条约束决定了法线矩阵。
+  - id: model-matrix
+    label: 模型矩阵
+    domain: geometry
+    article: 法线矩阵
+    size: 2
+    kw: model matrix M
+    desc: 把物体从模型空间送到世界空间的变换，也是问题开始的地方。
+  - id: inverse-transpose
+    label: 逆转置
+    domain: geometry
+    article: 法线矩阵
+    size: 3
+    kw: M⁻ᵀ inverse transpose
+    desc: M⁻ᵀ；非均匀缩放下唯一能保持垂直性的法线变换矩阵。
+  - id: adjugate
+    label: 伴随矩阵
+    domain: geometry
+    article: 法线矩阵
+    size: 2
+    kw: adjugate adj
+    desc: adj(M)ᵀ = (det M)M⁻ᵀ，对奇异矩阵也成立，只差一个标量因子。
+  - id: non-uniform-scale
+    label: 非均匀缩放
+    domain: geometry
+    article: 法线矩阵
+    size: 2
+    kw: 拉伸 挤压
+    desc: 各轴缩放不同时会把法线方向拧歪——整件事的起因。
+  - id: degenerate-transform
+    label: 退化变换
+    domain: geometry
+    article: 法线矩阵
+    size: 2
+    kw: det M = 0 奇异
+    desc: 行列式为 0、逆不存在的变换；此时只能退到伴随矩阵求方向。
+  - id: vertex-shader
+    label: 顶点着色器
+    domain: geometry
+    article: 骨骼蒙皮
+    size: 2
+    kw: vertex shader VS
+    desc: 逐顶点执行的 GPU 程序；蒙皮的主流实现并不在这里完成。
+  - id: inverse
+    label: 逆矩阵
+    domain: math
+    article: 法线矩阵
+    size: 2
+    kw: M⁻¹ inverse
+    desc: 把变换反过来；法线矩阵要它的转置，蒙皮要它把顶点送进骨骼空间。
+  - id: transpose
+    label: 转置
+    domain: math
+    article: 法线矩阵
+    size: 1
+    kw: transpose T
+    desc: 交换行列；正交矩阵的转置就是逆，所以旋转矩阵求逆很便宜。
+  - id: determinant
+    label: 行列式
+    domain: math
+    article: 法线矩阵
+    size: 1
+    kw: determinant det
+    desc: 矩阵的行列式；为 0 时逆不存在，法线变换只能退到伴随矩阵。
+  - id: normalization
+    label: 归一化
+    domain: math
+    article: 法线矩阵
+    size: 1
+    kw: normalize 单位向量
+    desc: 把向量长度变成 1；方向才是法线的全部，所以变换后必须重新归一化。
+
+  # ---------- 姿态与旋转 ----------
+  - id: euler-angles
+    label: 欧拉角
+    domain: rotation
+    article: 万向锁到底锁住了什么
+    size: 3
+    kw: Euler angles 偏航 俯仰 滚转
+    desc: 用三个角表示三维旋转的人机接口，万向锁的舞台。
+  - id: gimbal-lock
+    label: 万向锁
+    domain: rotation
+    article: 万向锁到底锁住了什么
+    size: 3
+    kw: gimbal lock
+    desc: 两根旋转轴共线，参数自由度从 3 塌缩到 2，姿态自由度并没有变。
+  - id: gimbal
+    label: 万向节
+    domain: rotation
+    article: 万向锁到底锁住了什么
+    size: 1
+    kw: gimbal 嵌套环
+    desc: 三层嵌套的旋转环；两根轴共面时就会锁住。
+  - id: orientation
+    label: 姿态
+    domain: rotation
+    article: 万向锁到底锁住了什么
+    size: 2
+    kw: orientation 朝向
+    desc: 物体在空间中的朝向，三维的；描述它的参数却不一定。
+  - id: jacobian
+    label: 雅可比矩阵
+    domain: rotation
+    article: 万向锁到底锁住了什么
+    size: 2
+    kw: Jacobian 导数
+    desc: 参数到姿态映射的导数矩阵；锁死时秩从 3 掉到 2。
+  - id: singularity
+    label: 奇异点
+    domain: rotation
+    article: 万向锁到底锁住了什么
+    size: 2
+    kw: singularity 奇点
+    desc: 雅可比降秩的位形；不是坏点，而是一条连续退化的路。
+  - id: quaternion
+    label: 四元数
+    domain: rotation
+    article: 万向锁到底锁住了什么
+    size: 2
+    kw: quaternion
+    desc: 四维单位向量，没有奇点的旋转表示，也是双四元数的基础。
+  - id: yaw-pitch-roll
+    label: 偏航俯仰滚转
+    domain: rotation
+    article: 万向锁到底锁住了什么
+    size: 1
+    kw: yaw pitch roll
+    desc: 航空视角的三轴角：分别绕 Y、X、Z 的旋转。
+  - id: rotation-matrix
+    label: 旋转矩阵
+    domain: rotation
+    article: 骨骼蒙皮
+    size: 1
+    kw: rotation matrix
+    desc: 3×3 正交矩阵，转置等于逆；蒙皮里由骨骼变换携带。
+  - id: rank
+    label: 秩
+    domain: math
+    article: 万向锁到底锁住了什么
+    size: 1
+    kw: rank
+    desc: 雅可比矩阵的秩；万向锁时从 3 降到 2，丢失的自由度在这里。
+  - id: condition-number
+    label: 条件数
+    domain: math
+    article: 万向锁到底锁住了什么
+    size: 2
+    kw: condition number 病态
+    desc: 奇异值之比；接近无穷时，参数对姿态的影响变得病态。
+
+  # ---------- 骨骼动画 ----------
+  - id: skinning
+    label: 骨骼蒙皮
+    domain: animation
+    article: 骨骼蒙皮
+    size: 3
+    kw: skinning
+    desc: 用骨骼变换带动网格顶点；公式只有一条，但算的地方有三种层次。
+  - id: lbs
+    label: 线性混合蒙皮
+    domain: animation
+    article: 骨骼蒙皮
+    size: 2
+    kw: LBS linear blend skinning
+    desc: 把顶点变换到各骨骼空间再加权平均；实现简单，会丢体积。
+  - id: dqs
+    label: 双四元数蒙皮
+    domain: animation
+    article: 骨骼蒙皮
+    size: 2
+    kw: DQS dual quaternion
+    desc: 用双四元数插值刚体变换，能缓解 LBS 的糖果纸效应。
+  - id: candy-wrapper
+    label: 糖果纸效应
+    domain: animation
+    article: 骨骼蒙皮
+    size: 2
+    kw: candy wrapper 糖纸
+    desc: 大角度扭转时 LBS 把网格拧成糖纸；170° 时半径只剩 8.7%。
+  - id: skin-matrix
+    label: 蒙皮矩阵
+    domain: animation
+    article: 骨骼蒙皮
+    size: 3
+    kw: skinning matrix B M⁻¹
+    desc: B_i(t)M_i⁻¹：把绑定姿势的顶点送进当前骨骼空间。
+  - id: bind-pose
+    label: 绑定姿势
+    domain: animation
+    article: 骨骼蒙皮
+    size: 2
+    kw: bind pose 绑定姿态
+    desc: 蒙皮开始前骨骼的参考姿态，蒙皮矩阵里要乘它的逆。
+  - id: bone-space
+    label: 骨骼空间
+    domain: animation
+    article: 骨骼蒙皮
+    size: 1
+    kw: bone space 局部空间
+    desc: 以某根骨骼为原点的局部坐标系；逆矩阵负责进出它。
+  - id: convex-hull
+    label: 凸包
+    domain: animation
+    article: 骨骼蒙皮
+    size: 1
+    kw: convex hull
+    desc: LBS 的结果落在各骨骼变换的凸包内，这是它塌体积的几何根源。
+  - id: volume-collapse
+    label: 体积塌陷
+    domain: animation
+    article: 骨骼蒙皮
+    size: 1
+    kw: 塌陷 压扁
+    desc: LBS 把两个旋转的加权平均变成非旋转，网格被压扁。
+  - id: weight-normalization
+    label: 权重归一化
+    domain: animation
+    article: 骨骼蒙皮
+    size: 1
+    kw: weight normalize
+    desc: 每个顶点的权重和为 1；三家引擎都在导入时做好，运行时不再重算。
+  - id: joint
+    label: 关节
+    domain: animation
+    article: 骨骼蒙皮
+    size: 1
+    kw: joint 骨骼
+    desc: 骨骼链上的连接点，带着自己的变换参与蒙皮。
+  - id: compute-shader
+    label: 计算着色器
+    domain: animation
+    article: 骨骼蒙皮
+    size: 1
+    kw: compute shader CS
+    desc: Godot 用专职 compute shader 算蒙皮，结果直接写回顶点缓冲。
+  - id: gpu-skin-cache
+    label: GPU 蒙皮缓存
+    domain: animation
+    article: 骨骼蒙皮
+    size: 1
+    kw: GPUSkinCache UE
+    desc: UE 的 GPUSkinCache：用 compute 把蒙皮结果缓存到缓冲区复用。
+
+edges:
+  # 几何与变换
+  - [normal, tangent]
+  - [normal, tangent-plane]
+  - [normal, orthogonal-constraint]
+  - [normal, model-matrix]
+  - [normal, inverse-transpose]
+  - [normal, normalization]
+  - [normal, vertex-shader]
+  - [tangent, orthogonal-constraint]
+  - [tangent, tangent-plane]
+  - [orthogonal-constraint, tangent-plane]
+  - [model-matrix, rotation-matrix]
+  - [model-matrix, inverse]
+  - [model-matrix, transpose]
+  - [inverse-transpose, adjugate]
+  - [inverse-transpose, non-uniform-scale]
+  - [inverse-transpose, inverse]
+  - [inverse-transpose, transpose]
+  - [inverse-transpose, vertex-shader]
+  - [adjugate, determinant]
+  - [adjugate, degenerate-transform]
+  - [non-uniform-scale, degenerate-transform]
+  - [degenerate-transform, determinant]
+  - [inverse, determinant]
+  - [inverse, transpose]
+  - [inverse, bone-space]
+  - [transpose, rotation-matrix]
+  - [normalization, weight-normalization]
+  # 姿态与旋转
+  - [euler-angles, gimbal-lock]
+  - [euler-angles, yaw-pitch-roll]
+  - [euler-angles, orientation]
+  - [gimbal-lock, gimbal]
+  - [gimbal-lock, jacobian]
+  - [gimbal-lock, singularity]
+  - [gimbal-lock, skinning]
+  - [jacobian, rank]
+  - [jacobian, condition-number]
+  - [singularity, rank]
+  - [singularity, condition-number]
+  - [orientation, rotation-matrix]
+  - [orientation, quaternion]
+  - [quaternion, dqs]
+  - [quaternion, rotation-matrix]
+  - [yaw-pitch-roll, gimbal]
+  - [rotation-matrix, skin-matrix]
+  # 骨骼动画
+  - [skinning, lbs]
+  - [skinning, skin-matrix]
+  - [skinning, bind-pose]
+  - [skinning, vertex-shader]
+  - [skinning, compute-shader]
+  - [lbs, candy-wrapper]
+  - [lbs, convex-hull]
+  - [lbs, volume-collapse]
+  - [lbs, weight-normalization]
+  - [dqs, candy-wrapper]
+  - [skin-matrix, bind-pose]
+  - [skin-matrix, bone-space]
+  - [skin-matrix, inverse]
+  - [skin-matrix, joint]
+  - [convex-hull, volume-collapse]
+  - [compute-shader, gpu-skin-cache]
+  - [joint, bone-space]
+  - [normal, skinning]

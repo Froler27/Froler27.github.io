@@ -13,3 +13,10 @@
 {{- end }}
 {{- end }}
 {{- end }}
+
+{{- if eq .Layout "knowledge" }}
+{{- with resources.Get "js/custom/knowledge-graph.js" }}
+{{- $graph := . | js.Build (dict "minify" true "target" "es2019") | fingerprint }}
+<script defer src="{{ $graph.RelPermalink }}"></script>
+{{- end }}
+{{- end }}

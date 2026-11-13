@@ -279,3 +279,39 @@ body.is-scrolled .header::after {
         font-size: 13px;
     }
 }
+
+/* 超窄屏：导航折成两行，避免菜单被挤出屏幕 */
+@media screen and (max-width: 380px) {
+    .header-nav {
+        flex-wrap: wrap;
+        row-gap: 0;
+        padding-top: 6px;
+        padding-bottom: 2px;
+    }
+
+    .logo {
+        flex: 1 1 auto;
+    }
+
+    .logo-switches {
+        margin-left: auto;
+    }
+
+    .menu {
+        order: 3;
+        flex: 1 1 100%;
+        justify-content: space-between;
+        overflow: visible;
+        line-height: 44px;
+        column-gap: 0;
+    }
+
+    .menu a {
+        padding: 0 8px;
+        font-size: 13px;
+    }
+
+    .menu a span::after {
+        bottom: 12px;
+    }
+}

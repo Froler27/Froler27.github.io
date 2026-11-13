@@ -12,12 +12,14 @@
 <html lang="{{ site.Language }}" dir="{{ .Language.LanguageDirection | default "auto" }}" data-theme="auto">
 {{- end }}
 
-{{- /* 页面类型交给 body 类名，供 CSS 放宽首页 / 列表页版心 */ -}}
+{{- /* 页面类型交给 body 类名，供 CSS 放宽首页 / 列表页 / 知识图谱版心 */ -}}
 {{- $bodyClass := "" }}
 {{- if .IsHome }}
 {{- $bodyClass = "home list wide" }}
 {{- else if (or (ne .Kind `page` ) (eq .Layout `archives`) (eq .Layout `search`)) }}
 {{- $bodyClass = "list wide" }}
+{{- else if eq .Layout `knowledge` }}
+{{- $bodyClass = "wide" }}
 {{- end }}
 
 <head>

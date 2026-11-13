@@ -1,0 +1,170 @@
+{{- /* 知识图谱：数据来自 data/knowledge.yaml，节点点击跳转文章 */ -}}
+{{- define "main" }}
+{{- $raw := hugo.Data.knowledge }}
+{{- $domains := $raw.domains }}
+
+{{- /* 只保留能解析到正式文章的节点（草稿 / 缺失文章自动跳过） */ -}}
+{{- $nodes := slice }}
+{{- range $raw.nodes }}
+  {{- $page := site.GetPage (printf "posts/%s" .article) }}
+  {{- if and $page (not $page.Draft) }}
+    {{- $nodes = $nodes | append (dict
+      "id" .id
+      "label" .label
+      "domain" .domain
+      "desc" .desc
+      "size" (default 1 .size)
+      "kw" (default "" .kw)
+      "url" $page.RelPermalink
+      "article" $page.Title
+    ) }}
+  {{- end }}
+{{- end }}
+
+{{- /* 文章列表：去重后按日期倒序 */ -}}
+{{- $pages := slice }}
+{{- range $raw.nodes }}
+  {{- with site.GetPage (printf "posts/%s" .article) }}
+    {{- if not .Draft }}{{ $pages = $pages | append . }}{{ end }}
+  {{- end }}
+{{- end }}
+{{- $pages = $pages | uniq }}
+{{- $pages = $pages.ByDate.Reverse }}
+
+{{- $graphData := dict "domains" $domains "nodes" $nodes "edges" $raw.edges }}
+{{- $conceptCount := len $nodes }}
+{{- $articleCount := len $pages }}
+{{- $edgeCount := len $raw.edges }}
+
+<section class="graph-page">
+  <header class="graph-head">
+    <p class="eyebrow"><span class="chip-dot"></span> KNOWLEDGE MAP · 已掌握的知识</p>
+    <h1>知识<span class="gradient-text">图谱</span></h1>
+    <p class="graph-lead">
+      每篇笔记是一个知识点，这里把它们连成一张图。<strong>点击任意名词</strong>可以跳到讲它的那篇文章；
+      拖动、缩放看看这些概念是怎么互相咬合的。
+    </p>
+    <ul class="graph-meta" aria-label="图谱统计">
+      <li><span class="graph-meta-num">{{ $conceptCount }}</span><span class="graph-meta-label">概念</span></li>
+      <li><span class="graph-meta-num">{{ $articleCount }}</span><span class="graph-meta-label">文章</span></li>
+      <li><span class="graph-meta-num">{{ $edgeCount }}</span><span class="graph-meta-label">连接</span></li>
+      <li><span class="graph-meta-num">{{ len $domains }}</span><span class="graph-meta-label">领域</span></li>
+    </ul>
+  </header>
+
+  <div class="graph-shell" id="graph-shell">
+    <div class="graph-toolbar">
+      <div class="graph-filters" role="group" aria-label="按领域筛选">
+        <button type="button" class="graph-chip is-active" data-filter="all" aria-pressed="true">
+          <span class="graph-chip-dot" style="--dot:#e9f1ff"></span>全部
+        </button>
+        {{- range $domains }}
+        <button type="button" class="graph-chip" data-filter="{{ .id }}" aria-pressed="false">
+          <span class="graph-chip-dot" style="--dot:{{ .color }}"></span>{{ .label }}
+        </button>
+        {{- end }}
+      </div>
+
+      <div class="graph-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <label class="visually-hidden" for="graph-query">搜索概念</label>
+        <input id="graph-query" type="search" placeholder="搜索名词…" autocomplete="off" spellcheck="false">
+      </div>
+
+      <button type="button" class="graph-reset" id="graph-reset" title="重置筛选和视图">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+        重置
+      </button>
+    </div>
+
+    <div class="graph-stage" id="graph-stage">
+      <canvas id="knowledge-canvas" role="img" aria-describedby="graph-help"
+        aria-label="知识图谱的可视化画布：节点是概念，连线是关系，点击节点打开对应文章。完整的可点击列表在页面下方。"></canvas>
+      <p id="graph-help" class="visually-hidden">可以用鼠标滚轮缩放、拖动空白处平移、拖动节点调整位置，点击节点打开文章。键盘用户请使用下方的领域和文章列表。</p>
+
+      <div class="graph-stats" aria-hidden="true">
+        <span><i class="graph-stats-dot"></i>{{ $conceptCount }} 概念</span>
+        <span>{{ $edgeCount }} 关系</span>
+        <span>{{ $articleCount }} 篇文章</span>
+      </div>
+
+      <div class="graph-hint" aria-hidden="true">
+        <span>拖拽平移</span><span>滚轮缩放</span><span>点击名词 → 文章</span>
+      </div>
+
+      <div class="graph-tooltip" id="graph-tooltip" hidden>
+        <span class="graph-tooltip-domain"></span>
+        <strong class="graph-tooltip-label"></strong>
+        <p class="graph-tooltip-desc"></p>
+        <span class="graph-tooltip-article"></span>
+        <span class="graph-tooltip-cta">点击打开文章 →</span>
+      </div>
+
+      <div class="graph-empty" id="graph-empty" hidden>没有匹配的概念，换个词试试</div>
+
+      <noscript>
+        <div class="graph-nojs">启用 JavaScript 后可以交互浏览图谱；下面的完整索引同样可以点进文章。</div>
+      </noscript>
+    </div>
+  </div>
+
+  <section class="graph-section reveal" aria-labelledby="graph-domains-title">
+    <header class="section-head">
+      <div>
+        <p class="section-index">01 / Domains</p>
+        <h2 id="graph-domains-title">按领域浏览</h2>
+        <p class="section-sub">每个名词都是一条到文章的入口。</p>
+      </div>
+    </header>
+    <div class="graph-domains">
+      {{- range $domains }}
+      {{- $domainNodes := where $nodes "domain" .id }}
+      <article class="domain-card" style="--domain-color: {{ .color }}">
+        <header class="domain-card-head">
+          <span class="domain-dot" aria-hidden="true"></span>
+          <h3>{{ .label }}</h3>
+          <span class="domain-count">{{ len $domainNodes }}</span>
+        </header>
+        <p class="domain-hint">{{ .hint }}</p>
+        <ul class="domain-concepts">
+          {{- range $domainNodes }}
+          <li><a href="{{ .url }}" title="{{ .desc }}">{{ .label }}</a></li>
+          {{- end }}
+        </ul>
+      </article>
+      {{- end }}
+    </div>
+  </section>
+
+  <section class="graph-section reveal" aria-labelledby="graph-articles-title">
+    <header class="section-head">
+      <div>
+        <p class="section-index">02 / Notes</p>
+        <h2 id="graph-articles-title">文章与概念</h2>
+        <p class="section-sub">反过来看：每篇文章撑起了哪些名词。</p>
+      </div>
+      <a class="section-link" href="{{ "/posts/" | relLangURL }}">全部文章
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+      </a>
+    </header>
+    <div class="graph-articles">
+      {{- range $pages }}
+      <article class="graph-article-card">
+        <p class="graph-article-meta">{{ .Date | time.Format "2006.01" }} · {{ .ReadingTime }} MIN</p>
+        <h3><a href="{{ .RelPermalink }}">{{ .Title }}</a></h3>
+        <p class="graph-article-summary">{{ .Summary | plainify | truncate 110 }}</p>
+        <div class="graph-article-chips">
+          {{- range where $nodes "article" .Title }}
+          <a href="{{ .url }}">{{ .label }}</a>
+          {{- end }}
+        </div>
+      </article>
+      {{- end }}
+    </div>
+  </section>
+
+  <p class="graph-footnote reveal">概念和关系是手工维护的：每个节点都指向一篇已发布的笔记，不会出现空链接。</p>
+</section>
+
+<script type="application/json" id="knowledge-data">{{ $graphData | jsonify | safeJS }}</script>
+{{- end }}

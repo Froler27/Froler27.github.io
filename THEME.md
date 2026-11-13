@@ -10,19 +10,22 @@
 | `assets/css/extended/custom-header.css` | 吸顶磨砂导航、菜单悬停下划线、主题切换按钮、移动端导航 |
 | `assets/css/extended/custom-home.css` | 首页 Hero、关键词跑马灯、笔记卡片流、交互实验卡、关于条、响应式 |
 | `assets/css/extended/custom-article.css` | 文章页 / 列表页 / 标签 / 搜索 / 404 的排版与组件 |
-
-> 注意：`resources.Match "css/extended/*.css"` 按文件名升序拼接，实际顺序是
-> `custom-article` → `custom-base` → `custom-header` → `custom-home`。
-> 文章页规则因此统一用 `.post-single` / `.main` 前缀提高优先级；基础、导航、首页
-> 在其后加载，可直接覆盖基础样式。新增 CSS 文件时请沿用这个约定。
+| `assets/css/extended/custom-graph.css` | 知识图谱页：舞台、工具栏、悬浮卡、领域/文章索引 |
 | `assets/js/custom/site.js` | 滚动进度、导航态、入场动画、数字滚动、卡片光斑、主题切换过渡、外链安全属性 |
 | `assets/js/custom/hero-init.js` | 读取主题色并初始化 Hero 背景、跟随明暗主题重绘 |
 | `assets/js/custom/hero-gl.js` | Hero 的 WebGL 场景（线框立方体 + 透视地面 + 浮尘），含降级与性能保护 |
+| `assets/js/custom/knowledge-graph.js` | 知识图谱的力导向布局、缩放/平移/拖拽、悬停详情、筛选搜索、点击跳文章 |
 | `layouts/index.html` | 自定义首页结构（替代主题的 home 列表） |
+| `layouts/knowledge.html` | 知识图谱页：读取 `data/knowledge.yaml`，渲染画布数据 JSON + 无 JS 索引 |
 | `layouts/_partials/post_card.html` | 首页笔记卡片 |
 | `layouts/baseof.html` | 仅加 body 类型类名、滚动进度条、跳到正文链接 |
 | `layouts/_partials/extend_head.html` | js 标记、KaTeX（沿用）、theme-color |
-| `layouts/_partials/extend_footer.html` | 交互脚本打包加载（Hero 脚本按文件存在与否条件加载） |
+| `layouts/_partials/extend_footer.html` | 交互脚本打包加载（Hero / 图谱脚本按页面条件加载） |
+
+> 注意：`resources.Match "css/extended/*.css"` 按文件名升序拼接，实际顺序是
+> `custom-article` → `custom-base` → `custom-graph` → `custom-header` → `custom-home`。
+> 文章页规则因此统一用 `.post-single` / `.main` 前缀提高优先级；基础、导航、首页
+> 在其后加载，可直接覆盖基础样式。新增 CSS 文件时请沿用这个约定。
 
 ## 设计令牌
 
@@ -41,12 +44,23 @@
 - 实验卡：`static/demo/gimbal-lock.html`、`static/demo/skinning.html`（新增演示时同步改 `layouts/index.html` 的 Lab 区）
 - 数字统计：文章数、标签数由 Hugo 实时计算；Lab 数目前手写在 `layouts/index.html`
 
+## 知识图谱
+
+页面入口 `/knowledge/`（导航「图谱」），数据全部在 `data/knowledge.yaml`：
+
+- `domains`：领域分组与颜色；`nodes`：名词节点，`article` 填 `content/posts/` 下的文件名（不带 `.md`）
+- `edges`：节点之间的关系（写两个 id）；渲染时会自动解析成真实文章链接，找不到文章 / 草稿节点会被跳过
+- 新增一篇笔记后：在 `nodes` 里加若干名词（同一个 `article` 可以挂多个概念），再按需要连 `edges` 即可
+- 画布交互：拖拽平移、滚轮/双指缩放、拖动节点、悬停看详情、点击节点打开文章
+- 宽屏与窄屏使用两套锚点布局；`prefers-reduced-motion` 下直接出静态图；无 JS 时画布隐藏，露出「按领域 / 按文章」的完整链接索引
+
 ## 交互与性能
 
 - WebGL 背景只在首页加载；`prefers-reduced-motion` 时只画一帧静态画面；页面不可见时自动暂停；DPR 上限 1.75；WebGL 不可用时静默降级为 CSS 光晕背景
+- 知识图谱只在 `/knowledge/` 加载，布局在首屏同步算完，之后只在交互时重绘（没有常驻 rAF）；DPR 上限 2
 - 所有动画在 `prefers-reduced-motion: reduce` 下关闭；无 JS 时内容默认可见（`.reveal` 只在 `html.js` 下隐藏）
 - 卡片光斑、数字滚动均做 IntersectionObserver / rAF 节流
-- 不引入任何外部字体、CDN、框架；新增体积只有 CSS 与两个自托管脚本
+- 不引入任何外部字体、CDN、框架；新增体积只有 CSS 与自托管脚本
 
 ## 已知约定
 

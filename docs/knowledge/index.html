@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="zh" dir="auto" data-theme="auto">
+
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+<title>知识图谱 | 幻域 · 渲染笔记</title>
+<meta name="keywords" content="">
+<meta name="description" content="把已发布的笔记连成一张可点击的知识地图：每个名词背后都是一篇文章。">
+<meta name="author" content="Froler27">
+<link rel="canonical" href="https://quanpu.wang/knowledge/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.e4ccf97734dad738dd8cedc392216bb198507cb94c1c773c881837969162dcb7.css" integrity="sha256-5Mz5dzTa1zjdjO3DkiFrsZhQfLlMHHc8iBg3lpFi3Lc=" rel="preload stylesheet" as="style">
+<link rel="icon" href="https://quanpu.wang/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="https://quanpu.wang/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="https://quanpu.wang/favicon-32x32.png">
+<link rel="apple-touch-icon" href="https://quanpu.wang/apple-touch-icon.png">
+<link rel="mask-icon" href="https://quanpu.wang/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="zh" href="https://quanpu.wang/knowledge/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script><script>document.documentElement.classList.add("js");</script><meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4f8ff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#05080f">
+<meta name="color-scheme" content="light dark">
+<meta property="og:url" content="https://quanpu.wang/knowledge/">
+  <meta property="og:site_name" content="幻域 · 渲染笔记">
+  <meta property="og:title" content="知识图谱">
+  <meta property="og:description" content="把已发布的笔记连成一张可点击的知识地图：每个名词背后都是一篇文章。">
+  <meta property="og:locale" content="zh_cn">
+  <meta property="og:type" content="article">
+
+  <meta name="twitter:card" content="summary">
+  <meta name="twitter:title" content="知识图谱">
+  <meta name="twitter:description" content="把已发布的笔记连成一张可点击的知识地图：每个名词背后都是一篇文章。">
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position":  1 ,
+      "name": "知识图谱",
+      "item": "https://quanpu.wang/knowledge/"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "知识图谱",
+  "name": "知识图谱",
+  "description": "把已发布的笔记连成一张可点击的知识地图：每个名词背后都是一篇文章。",
+  "keywords": [
+    
+  ],
+  "articleBody": "知识图谱把已发布的笔记连成一张可点击的地图：每个节点是一个渲染 / 图形学概念，点进去就是讲它的那篇文章。\n",
+  "wordCount" : "3",
+  "inLanguage": "zh",
+  "datePublished": "0001-01-01T00:00:00Z",
+  "dateModified": "0001-01-01T00:00:00Z",
+  "author":{
+    "@type": "Person",
+    "name": "Froler27"
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://quanpu.wang/knowledge/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "幻域 · 渲染笔记",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://quanpu.wang/favicon.ico"
+    }
+  }
+}
+</script>
+</head>
+
+<body class="wide" id="top">
+    <a class="skip-link" href="#main">跳到正文</a>
+    <div class="scroll-progress" aria-hidden="true"></div>
+    <header class="header">
+    <nav class="header-nav">
+        <div class="logo">
+            <a href="https://quanpu.wang/" accesskey="h" title="幻域 · 渲染笔记 (Alt + H)">
+                    <img src="https://quanpu.wang/images/logo.svg" alt="" aria-label="logo"
+                        height="34">幻域 · 渲染笔记</a>
+            <div class="logo-switches">
+                <button id="theme-toggle" class="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg class="moon" xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg class="sun" xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <ul id="menu" class="menu">
+            <li>
+                <a href="https://quanpu.wang/posts/" title="文章">
+                    <span>文章</span>
+                </a>
+            </li>
+            <li>
+                <a href="https://quanpu.wang/knowledge/" title="图谱">
+                    <span class="active">图谱</span>
+                </a>
+            </li>
+            <li>
+                <a href="https://quanpu.wang/tags/" title="标签">
+                    <span>标签</span>
+                </a>
+            </li>
+            <li>
+                <a href="https://quanpu.wang/search/" title="搜索 (Alt &#43; /)" accesskey=/>
+                    <span>搜索</span>
+                </a>
+            </li>
+            <li>
+                <a href="https://quanpu.wang/about/" title="关于">
+                    <span>关于</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main" id="main">
+
+<section class="graph-page">
+  <header class="graph-head">
+    <p class="eyebrow"><span class="chip-dot"></span> KNOWLEDGE MAP · 已掌握的知识</p>
+    <h1>知识<span class="gradient-text">图谱</span></h1>
+    <p class="graph-lead">
+      每篇笔记是一个知识点，这里把它们连成一张图。<strong>点击任意名词</strong>可以跳到讲它的那篇文章；
+      拖动、缩放看看这些概念是怎么互相咬合的。
+    </p>
+    <ul class="graph-meta" aria-label="图谱统计">
+      <li><span class="graph-meta-num">38</span><span class="graph-meta-label">概念</span></li>
+      <li><span class="graph-meta-num">3</span><span class="graph-meta-label">文章</span></li>
+      <li><span class="graph-meta-num">62</span><span class="graph-meta-label">连接</span></li>
+      <li><span class="graph-meta-num">4</span><span class="graph-meta-label">领域</span></li>
+    </ul>
+  </header>
+
+  <div class="graph-shell" id="graph-shell">
+    <div class="graph-toolbar">
+      <div class="graph-filters" role="group" aria-label="按领域筛选">
+        <button type="button" class="graph-chip is-active" data-filter="all" aria-pressed="true">
+          <span class="graph-chip-dot" style="--dot:#e9f1ff"></span>全部
+        </button>
+        <button type="button" class="graph-chip" data-filter="geometry" aria-pressed="false">
+          <span class="graph-chip-dot" style="--dot:#38bdf8"></span>几何与变换
+        </button>
+        <button type="button" class="graph-chip" data-filter="rotation" aria-pressed="false">
+          <span class="graph-chip-dot" style="--dot:#a78bfa"></span>姿态与旋转
+        </button>
+        <button type="button" class="graph-chip" data-filter="animation" aria-pressed="false">
+          <span class="graph-chip-dot" style="--dot:#34d399"></span>骨骼动画
+        </button>
+        <button type="button" class="graph-chip" data-filter="math" aria-pressed="false">
+          <span class="graph-chip-dot" style="--dot:#fbbf24"></span>数学工具
+        </button>
+      </div>
+
+      <div class="graph-search">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <label class="visually-hidden" for="graph-query">搜索概念</label>
+        <input id="graph-query" type="search" placeholder="搜索名词…" autocomplete="off" spellcheck="false">
+      </div>
+
+      <button type="button" class="graph-reset" id="graph-reset" title="重置筛选和视图">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg>
+        重置
+      </button>
+    </div>
+
+    <div class="graph-stage" id="graph-stage">
+      <canvas id="knowledge-canvas" role="img" aria-describedby="graph-help"
+        aria-label="知识图谱的可视化画布：节点是概念，连线是关系，点击节点打开对应文章。完整的可点击列表在页面下方。"></canvas>
+      <p id="graph-help" class="visually-hidden">可以用鼠标滚轮缩放、拖动空白处平移、拖动节点调整位置，点击节点打开文章。键盘用户请使用下方的领域和文章列表。</p>
+
+      <div class="graph-stats" aria-hidden="true">
+        <span><i class="graph-stats-dot"></i>38 概念</span>
+        <span>62 关系</span>
+        <span>3 篇文章</span>
+      </div>
+
+      <div class="graph-hint" aria-hidden="true">
+        <span>拖拽平移</span><span>滚轮缩放</span><span>点击名词 → 文章</span>
+      </div>
+
+      <div class="graph-tooltip" id="graph-tooltip" hidden>
+        <span class="graph-tooltip-domain"></span>
+        <strong class="graph-tooltip-label"></strong>
+        <p class="graph-tooltip-desc"></p>
+        <span class="graph-tooltip-article"></span>
+        <span class="graph-tooltip-cta">点击打开文章 →</span>
+      </div>
+
+      <div class="graph-empty" id="graph-empty" hidden>没有匹配的概念，换个词试试</div>
+
+      <noscript>
+        <div class="graph-nojs">启用 JavaScript 后可以交互浏览图谱；下面的完整索引同样可以点进文章。</div>
+      </noscript>
+    </div>
+  </div>
+
+  <section class="graph-section reveal" aria-labelledby="graph-domains-title">
+    <header class="section-head">
+      <div>
+        <p class="section-index">01 / Domains</p>
+        <h2 id="graph-domains-title">按领域浏览</h2>
+        <p class="section-sub">每个名词都是一条到文章的入口。</p>
+      </div>
+    </header>
+    <div class="graph-domains">
+      <article class="domain-card" style="--domain-color: #38bdf8">
+        <header class="domain-card-head">
+          <span class="domain-dot" aria-hidden="true"></span>
+          <h3>几何与变换</h3>
+          <span class="domain-count">10</span>
+        </header>
+        <p class="domain-hint">法线、切线、矩阵与逆转置</p>
+        <ul class="domain-concepts">
+          <li><a href="/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/" title="垂直于表面的向量，跟着几何走；非均匀缩放下不能直接乘模型矩阵。">法线</a></li>
+          <li><a href="/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/" title="沿表面方向、与法线点乘为零的向量，是推导法线变换的出发点。">切向量</a></li>
+          <li><a href="/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/" title="表面在某点附近的局部平面，法线就垂直于它。">切平面</a></li>
+          <li><a href="/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/" title="n·t = 0——法线必须始终垂直于切平面，这条约束决定了法线矩阵。">正交约束</a></li>
+          <li><a href="/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/" title="把物体从模型空间送到世界空间的变换，也是问题开始的地方。">模型矩阵</a></li>
+          <li><a href="/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/" title="M⁻ᵀ；非均匀缩放下唯一能保持垂直性的法线变换矩阵。">逆转置</a></li>
+          <li><a href="/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/" title="adj(M)ᵀ = (det M)M⁻ᵀ，对奇异矩阵也成立，只差一个标量因子。">伴随矩阵</a></li>
+          <li><a href="/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/" title="各轴缩放不同时会把法线方向拧歪——整件事的起因。">非均匀缩放</a></li>
+          <li><a href="/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/" title="行列式为 0、逆不存在的变换；此时只能退到伴随矩阵求方向。">退化变换</a></li>
+          <li><a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/" title="逐顶点执行的 GPU 程序；蒙皮的主流实现并不在这里完成。">顶点着色器</a></li>
+        </ul>
+      </article>
+      <article class="domain-card" style="--domain-color: #a78bfa">
+        <header class="domain-card-head">
+          <span class="domain-dot" aria-hidden="true"></span>
+          <h3>姿态与旋转</h3>
+          <span class="domain-count">9</span>
+        </header>
+        <p class="domain-hint">欧拉角、万向锁与四元数</p>
+        <ul class="domain-concepts">
+          <li><a href="/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/" title="用三个角表示三维旋转的人机接口，万向锁的舞台。">欧拉角</a></li>
+          <li><a href="/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/" title="两根旋转轴共线，参数自由度从 3 塌缩到 2，姿态自由度并没有变。">万向锁</a></li>
+          <li><a href="/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/" title="三层嵌套的旋转环；两根轴共面时就会锁住。">万向节</a></li>
+          <li><a href="/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/" title="物体在空间中的朝向，三维的；描述它的参数却不一定。">姿态</a></li>
+          <li><a href="/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/" title="参数到姿态映射的导数矩阵；锁死时秩从 3 掉到 2。">雅可比矩阵</a></li>
+          <li><a href="/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/" title="雅可比降秩的位形；不是坏点，而是一条连续退化的路。">奇异点</a></li>
+          <li><a href="/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/" title="四维单位向量，没有奇点的旋转表示，也是双四元数的基础。">四元数</a></li>
+          <li><a href="/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/" title="航空视角的三轴角：分别绕 Y、X、Z 的旋转。">偏航俯仰滚转</a></li>
+          <li><a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/" title="3×3 正交矩阵，转置等于逆；蒙皮里由骨骼变换携带。">旋转矩阵</a></li>
+        </ul>
+      </article>
+      <article class="domain-card" style="--domain-color: #34d399">
+        <header class="domain-card-head">
+          <span class="domain-dot" aria-hidden="true"></span>
+          <h3>骨骼动画</h3>
+          <span class="domain-count">13</span>
+        </header>
+        <p class="domain-hint">蒙皮、双四元数与引擎实现</p>
+        <ul class="domain-concepts">
+          <li><a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/" title="用骨骼变换带动网格顶点；公式只有一条，但算的地方有三种层次。">骨骼蒙皮</a></li>
+          <li><a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/" title="把顶点变换到各骨骼空间再加权平均；实现简单，会丢体积。">线性混合蒙皮</a></li>
+          <li><a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/" title="用双四元数插值刚体变换，能缓解 LBS 的糖果纸效应。">双四元数蒙皮</a></li>
+          <li><a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/" title="大角度扭转时 LBS 把网格拧成糖纸；170° 时半径只剩 8.7%。">糖果纸效应</a></li>
+          <li><a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/" title="B_i(t)M_i⁻¹：把绑定姿势的顶点送进当前骨骼空间。">蒙皮矩阵</a></li>
+          <li><a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/" title="蒙皮开始前骨骼的参考姿态，蒙皮矩阵里要乘它的逆。">绑定姿势</a></li>
+          <li><a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/" title="以某根骨骼为原点的局部坐标系；逆矩阵负责进出它。">骨骼空间</a></li>
+          <li><a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/" title="LBS 的结果落在各骨骼变换的凸包内，这是它塌体积的几何根源。">凸包</a></li>
+          <li><a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/" title="LBS 把两个旋转的加权平均变成非旋转，网格被压扁。">体积塌陷</a></li>
+          <li><a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/" title="每个顶点的权重和为 1；三家引擎都在导入时做好，运行时不再重算。">权重归一化</a></li>
+          <li><a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/" title="骨骼链上的连接点，带着自己的变换参与蒙皮。">关节</a></li>
+          <li><a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/" title="Godot 用专职 compute shader 算蒙皮，结果直接写回顶点缓冲。">计算着色器</a></li>
+          <li><a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/" title="UE 的 GPUSkinCache：用 compute 把蒙皮结果缓存到缓冲区复用。">GPU 蒙皮缓存</a></li>
+        </ul>
+      </article>
+      <article class="domain-card" style="--domain-color: #fbbf24">
+        <header class="domain-card-head">
+          <span class="domain-dot" aria-hidden="true"></span>
+          <h3>数学工具</h3>
+          <span class="domain-count">6</span>
+        </header>
+        <p class="domain-hint">秩、条件数、行列式与逆</p>
+        <ul class="domain-concepts">
+          <li><a href="/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/" title="把变换反过来；法线矩阵要它的转置，蒙皮要它把顶点送进骨骼空间。">逆矩阵</a></li>
+          <li><a href="/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/" title="交换行列；正交矩阵的转置就是逆，所以旋转矩阵求逆很便宜。">转置</a></li>
+          <li><a href="/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/" title="矩阵的行列式；为 0 时逆不存在，法线变换只能退到伴随矩阵。">行列式</a></li>
+          <li><a href="/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/" title="把向量长度变成 1；方向才是法线的全部，所以变换后必须重新归一化。">归一化</a></li>
+          <li><a href="/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/" title="雅可比矩阵的秩；万向锁时从 3 降到 2，丢失的自由度在这里。">秩</a></li>
+          <li><a href="/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/" title="奇异值之比；接近无穷时，参数对姿态的影响变得病态。">条件数</a></li>
+        </ul>
+      </article>
+    </div>
+  </section>
+
+  <section class="graph-section reveal" aria-labelledby="graph-articles-title">
+    <header class="section-head">
+      <div>
+        <p class="section-index">02 / Notes</p>
+        <h2 id="graph-articles-title">文章与概念</h2>
+        <p class="section-sub">反过来看：每篇文章撑起了哪些名词。</p>
+      </div>
+      <a class="section-link" href="/posts/">全部文章
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/><path d="m13 6 6 6-6 6"/></svg>
+      </a>
+    </header>
+    <div class="graph-articles">
+      <article class="graph-article-card">
+        <p class="graph-article-meta">2026.09 · 7 MIN</p>
+        <h3><a href="/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/">万向锁到底锁住了什么？</a></h3>
+        <p class="graph-article-summary">万向锁丢的是参数的自由度，不是姿态的自由度。从姿态雅可比矩阵的秩和条件数出发，说清锁死时的精确等价关系、为什么符号会变，以及为什么“别转到 90°”不是解法。</p>
+        <div class="graph-article-chips">
+          <a href="/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/">欧拉角</a>
+          <a href="/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/">万向锁</a>
+          <a href="/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/">万向节</a>
+          <a href="/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/">姿态</a>
+          <a href="/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/">雅可比矩阵</a>
+          <a href="/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/">奇异点</a>
+          <a href="/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/">四元数</a>
+          <a href="/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/">偏航俯仰滚转</a>
+          <a href="/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/">秩</a>
+          <a href="/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/">条件数</a>
+        </div>
+      </article>
+      <article class="graph-article-card">
+        <p class="graph-article-meta">2026.09 · 9 MIN</p>
+        <h3><a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/">骨骼蒙皮：三个引擎都不在顶点着色器里做</a></h3>
+        <p class="graph-article-summary">骨骼蒙皮的公式只有一条，但“在哪算”有三个层次——UE、Unity、Godot 的主流路径都不在场景顶点着色器里。逐字核对三家的蒙皮代码后，说清整条流程、关键实现，以及五个只有翻源码才知道的设计决定。</p>
+        <div class="graph-article-chips">
+          <a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/">顶点着色器</a>
+          <a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/">旋转矩阵</a>
+          <a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/">骨骼蒙皮</a>
+          <a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/">线性混合蒙皮</a>
+          <a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/">双四元数蒙皮</a>
+          <a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/">糖果纸效应</a>
+          <a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/">蒙皮矩阵</a>
+          <a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/">绑定姿势</a>
+          <a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/">骨骼空间</a>
+          <a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/">凸包</a>
+          <a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/">体积塌陷</a>
+          <a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/">权重归一化</a>
+          <a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/">关节</a>
+          <a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/">计算着色器</a>
+          <a href="/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/">GPU 蒙皮缓存</a>
+        </div>
+      </article>
+      <article class="graph-article-card">
+        <p class="graph-article-meta">2026.09 · 4 MIN</p>
+        <h3><a href="/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/">为什么法线不能直接用模型矩阵变换？</a></h3>
+        <p class="graph-article-summary">从 n·t = 0 这个约束出发推导法线变换矩阵，说清它唯一到什么程度、什么时候可以省掉、以及矩阵奇异时该怎么办。</p>
+        <div class="graph-article-chips">
+          <a href="/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/">法线</a>
+          <a href="/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/">切向量</a>
+          <a href="/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/">切平面</a>
+          <a href="/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/">正交约束</a>
+          <a href="/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/">模型矩阵</a>
+          <a href="/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/">逆转置</a>
+          <a href="/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/">伴随矩阵</a>
+          <a href="/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/">非均匀缩放</a>
+          <a href="/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/">退化变换</a>
+          <a href="/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/">逆矩阵</a>
+          <a href="/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/">转置</a>
+          <a href="/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/">行列式</a>
+          <a href="/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/">归一化</a>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <p class="graph-footnote reveal">概念和关系是手工维护的：每个节点都指向一篇已发布的笔记，不会出现空链接。</p>
+</section>
+
+<script type="application/json" id="knowledge-data">{"domains":[{"color":"#38bdf8","hint":"法线、切线、矩阵与逆转置","id":"geometry","label":"几何与变换"},{"color":"#a78bfa","hint":"欧拉角、万向锁与四元数","id":"rotation","label":"姿态与旋转"},{"color":"#34d399","hint":"蒙皮、双四元数与引擎实现","id":"animation","label":"骨骼动画"},{"color":"#fbbf24","hint":"秩、条件数、行列式与逆","id":"math","label":"数学工具"}],"edges":[["normal","tangent"],["normal","tangent-plane"],["normal","orthogonal-constraint"],["normal","model-matrix"],["normal","inverse-transpose"],["normal","normalization"],["normal","vertex-shader"],["tangent","orthogonal-constraint"],["tangent","tangent-plane"],["orthogonal-constraint","tangent-plane"],["model-matrix","rotation-matrix"],["model-matrix","inverse"],["model-matrix","transpose"],["inverse-transpose","adjugate"],["inverse-transpose","non-uniform-scale"],["inverse-transpose","inverse"],["inverse-transpose","transpose"],["inverse-transpose","vertex-shader"],["adjugate","determinant"],["adjugate","degenerate-transform"],["non-uniform-scale","degenerate-transform"],["degenerate-transform","determinant"],["inverse","determinant"],["inverse","transpose"],["inverse","bone-space"],["transpose","rotation-matrix"],["normalization","weight-normalization"],["euler-angles","gimbal-lock"],["euler-angles","yaw-pitch-roll"],["euler-angles","orientation"],["gimbal-lock","gimbal"],["gimbal-lock","jacobian"],["gimbal-lock","singularity"],["gimbal-lock","skinning"],["jacobian","rank"],["jacobian","condition-number"],["singularity","rank"],["singularity","condition-number"],["orientation","rotation-matrix"],["orientation","quaternion"],["quaternion","dqs"],["quaternion","rotation-matrix"],["yaw-pitch-roll","gimbal"],["rotation-matrix","skin-matrix"],["skinning","lbs"],["skinning","skin-matrix"],["skinning","bind-pose"],["skinning","vertex-shader"],["skinning","compute-shader"],["lbs","candy-wrapper"],["lbs","convex-hull"],["lbs","volume-collapse"],["lbs","weight-normalization"],["dqs","candy-wrapper"],["skin-matrix","bind-pose"],["skin-matrix","bone-space"],["skin-matrix","inverse"],["skin-matrix","joint"],["convex-hull","volume-collapse"],["compute-shader","gpu-skin-cache"],["joint","bone-space"],["normal","skinning"]],"nodes":[{"article":"为什么法线不能直接用模型矩阵变换？","desc":"垂直于表面的向量，跟着几何走；非均匀缩放下不能直接乘模型矩阵。","domain":"geometry","id":"normal","kw":"normal 法线向量","label":"法线","size":3,"url":"/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/"},{"article":"为什么法线不能直接用模型矩阵变换？","desc":"沿表面方向、与法线点乘为零的向量，是推导法线变换的出发点。","domain":"geometry","id":"tangent","kw":"tangent","label":"切向量","size":2,"url":"/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/"},{"article":"为什么法线不能直接用模型矩阵变换？","desc":"表面在某点附近的局部平面，法线就垂直于它。","domain":"geometry","id":"tangent-plane","kw":"局部平面","label":"切平面","size":1,"url":"/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/"},{"article":"为什么法线不能直接用模型矩阵变换？","desc":"n·t = 0——法线必须始终垂直于切平面，这条约束决定了法线矩阵。","domain":"geometry","id":"orthogonal-constraint","kw":"垂直 点乘 n·t=0","label":"正交约束","size":1,"url":"/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/"},{"article":"为什么法线不能直接用模型矩阵变换？","desc":"把物体从模型空间送到世界空间的变换，也是问题开始的地方。","domain":"geometry","id":"model-matrix","kw":"model matrix M","label":"模型矩阵","size":2,"url":"/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/"},{"article":"为什么法线不能直接用模型矩阵变换？","desc":"M⁻ᵀ；非均匀缩放下唯一能保持垂直性的法线变换矩阵。","domain":"geometry","id":"inverse-transpose","kw":"M⁻ᵀ inverse transpose","label":"逆转置","size":3,"url":"/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/"},{"article":"为什么法线不能直接用模型矩阵变换？","desc":"adj(M)ᵀ = (det M)M⁻ᵀ，对奇异矩阵也成立，只差一个标量因子。","domain":"geometry","id":"adjugate","kw":"adjugate adj","label":"伴随矩阵","size":2,"url":"/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/"},{"article":"为什么法线不能直接用模型矩阵变换？","desc":"各轴缩放不同时会把法线方向拧歪——整件事的起因。","domain":"geometry","id":"non-uniform-scale","kw":"拉伸 挤压","label":"非均匀缩放","size":2,"url":"/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/"},{"article":"为什么法线不能直接用模型矩阵变换？","desc":"行列式为 0、逆不存在的变换；此时只能退到伴随矩阵求方向。","domain":"geometry","id":"degenerate-transform","kw":"det M = 0 奇异","label":"退化变换","size":2,"url":"/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/"},{"article":"骨骼蒙皮：三个引擎都不在顶点着色器里做","desc":"逐顶点执行的 GPU 程序；蒙皮的主流实现并不在这里完成。","domain":"geometry","id":"vertex-shader","kw":"vertex shader VS","label":"顶点着色器","size":2,"url":"/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/"},{"article":"为什么法线不能直接用模型矩阵变换？","desc":"把变换反过来；法线矩阵要它的转置，蒙皮要它把顶点送进骨骼空间。","domain":"math","id":"inverse","kw":"M⁻¹ inverse","label":"逆矩阵","size":2,"url":"/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/"},{"article":"为什么法线不能直接用模型矩阵变换？","desc":"交换行列；正交矩阵的转置就是逆，所以旋转矩阵求逆很便宜。","domain":"math","id":"transpose","kw":"transpose T","label":"转置","size":1,"url":"/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/"},{"article":"为什么法线不能直接用模型矩阵变换？","desc":"矩阵的行列式；为 0 时逆不存在，法线变换只能退到伴随矩阵。","domain":"math","id":"determinant","kw":"determinant det","label":"行列式","size":1,"url":"/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/"},{"article":"为什么法线不能直接用模型矩阵变换？","desc":"把向量长度变成 1；方向才是法线的全部，所以变换后必须重新归一化。","domain":"math","id":"normalization","kw":"normalize 单位向量","label":"归一化","size":1,"url":"/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/"},{"article":"万向锁到底锁住了什么？","desc":"用三个角表示三维旋转的人机接口，万向锁的舞台。","domain":"rotation","id":"euler-angles","kw":"Euler angles 偏航 俯仰 滚转","label":"欧拉角","size":3,"url":"/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/"},{"article":"万向锁到底锁住了什么？","desc":"两根旋转轴共线，参数自由度从 3 塌缩到 2，姿态自由度并没有变。","domain":"rotation","id":"gimbal-lock","kw":"gimbal lock","label":"万向锁","size":3,"url":"/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/"},{"article":"万向锁到底锁住了什么？","desc":"三层嵌套的旋转环；两根轴共面时就会锁住。","domain":"rotation","id":"gimbal","kw":"gimbal 嵌套环","label":"万向节","size":1,"url":"/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/"},{"article":"万向锁到底锁住了什么？","desc":"物体在空间中的朝向，三维的；描述它的参数却不一定。","domain":"rotation","id":"orientation","kw":"orientation 朝向","label":"姿态","size":2,"url":"/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/"},{"article":"万向锁到底锁住了什么？","desc":"参数到姿态映射的导数矩阵；锁死时秩从 3 掉到 2。","domain":"rotation","id":"jacobian","kw":"Jacobian 导数","label":"雅可比矩阵","size":2,"url":"/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/"},{"article":"万向锁到底锁住了什么？","desc":"雅可比降秩的位形；不是坏点，而是一条连续退化的路。","domain":"rotation","id":"singularity","kw":"singularity 奇点","label":"奇异点","size":2,"url":"/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/"},{"article":"万向锁到底锁住了什么？","desc":"四维单位向量，没有奇点的旋转表示，也是双四元数的基础。","domain":"rotation","id":"quaternion","kw":"quaternion","label":"四元数","size":2,"url":"/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/"},{"article":"万向锁到底锁住了什么？","desc":"航空视角的三轴角：分别绕 Y、X、Z 的旋转。","domain":"rotation","id":"yaw-pitch-roll","kw":"yaw pitch roll","label":"偏航俯仰滚转","size":1,"url":"/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/"},{"article":"骨骼蒙皮：三个引擎都不在顶点着色器里做","desc":"3×3 正交矩阵，转置等于逆；蒙皮里由骨骼变换携带。","domain":"rotation","id":"rotation-matrix","kw":"rotation matrix","label":"旋转矩阵","size":1,"url":"/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/"},{"article":"万向锁到底锁住了什么？","desc":"雅可比矩阵的秩；万向锁时从 3 降到 2，丢失的自由度在这里。","domain":"math","id":"rank","kw":"rank","label":"秩","size":1,"url":"/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/"},{"article":"万向锁到底锁住了什么？","desc":"奇异值之比；接近无穷时，参数对姿态的影响变得病态。","domain":"math","id":"condition-number","kw":"condition number 病态","label":"条件数","size":2,"url":"/posts/%E4%B8%87%E5%90%91%E9%94%81%E5%88%B0%E5%BA%95%E9%94%81%E4%BD%8F%E4%BA%86%E4%BB%80%E4%B9%88/"},{"article":"骨骼蒙皮：三个引擎都不在顶点着色器里做","desc":"用骨骼变换带动网格顶点；公式只有一条，但算的地方有三种层次。","domain":"animation","id":"skinning","kw":"skinning","label":"骨骼蒙皮","size":3,"url":"/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/"},{"article":"骨骼蒙皮：三个引擎都不在顶点着色器里做","desc":"把顶点变换到各骨骼空间再加权平均；实现简单，会丢体积。","domain":"animation","id":"lbs","kw":"LBS linear blend skinning","label":"线性混合蒙皮","size":2,"url":"/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/"},{"article":"骨骼蒙皮：三个引擎都不在顶点着色器里做","desc":"用双四元数插值刚体变换，能缓解 LBS 的糖果纸效应。","domain":"animation","id":"dqs","kw":"DQS dual quaternion","label":"双四元数蒙皮","size":2,"url":"/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/"},{"article":"骨骼蒙皮：三个引擎都不在顶点着色器里做","desc":"大角度扭转时 LBS 把网格拧成糖纸；170° 时半径只剩 8.7%。","domain":"animation","id":"candy-wrapper","kw":"candy wrapper 糖纸","label":"糖果纸效应","size":2,"url":"/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/"},{"article":"骨骼蒙皮：三个引擎都不在顶点着色器里做","desc":"B_i(t)M_i⁻¹：把绑定姿势的顶点送进当前骨骼空间。","domain":"animation","id":"skin-matrix","kw":"skinning matrix B M⁻¹","label":"蒙皮矩阵","size":3,"url":"/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/"},{"article":"骨骼蒙皮：三个引擎都不在顶点着色器里做","desc":"蒙皮开始前骨骼的参考姿态，蒙皮矩阵里要乘它的逆。","domain":"animation","id":"bind-pose","kw":"bind pose 绑定姿态","label":"绑定姿势","size":2,"url":"/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/"},{"article":"骨骼蒙皮：三个引擎都不在顶点着色器里做","desc":"以某根骨骼为原点的局部坐标系；逆矩阵负责进出它。","domain":"animation","id":"bone-space","kw":"bone space 局部空间","label":"骨骼空间","size":1,"url":"/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/"},{"article":"骨骼蒙皮：三个引擎都不在顶点着色器里做","desc":"LBS 的结果落在各骨骼变换的凸包内，这是它塌体积的几何根源。","domain":"animation","id":"convex-hull","kw":"convex hull","label":"凸包","size":1,"url":"/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/"},{"article":"骨骼蒙皮：三个引擎都不在顶点着色器里做","desc":"LBS 把两个旋转的加权平均变成非旋转，网格被压扁。","domain":"animation","id":"volume-collapse","kw":"塌陷 压扁","label":"体积塌陷","size":1,"url":"/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/"},{"article":"骨骼蒙皮：三个引擎都不在顶点着色器里做","desc":"每个顶点的权重和为 1；三家引擎都在导入时做好，运行时不再重算。","domain":"animation","id":"weight-normalization","kw":"weight normalize","label":"权重归一化","size":1,"url":"/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/"},{"article":"骨骼蒙皮：三个引擎都不在顶点着色器里做","desc":"骨骼链上的连接点，带着自己的变换参与蒙皮。","domain":"animation","id":"joint","kw":"joint 骨骼","label":"关节","size":1,"url":"/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/"},{"article":"骨骼蒙皮：三个引擎都不在顶点着色器里做","desc":"Godot 用专职 compute shader 算蒙皮，结果直接写回顶点缓冲。","domain":"animation","id":"compute-shader","kw":"compute shader CS","label":"计算着色器","size":1,"url":"/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/"},{"article":"骨骼蒙皮：三个引擎都不在顶点着色器里做","desc":"UE 的 GPUSkinCache：用 compute 把蒙皮结果缓存到缓冲区复用。","domain":"animation","id":"gpu-skin-cache","kw":"GPUSkinCache UE","label":"GPU 蒙皮缓存","size":1,"url":"/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/"}]}</script>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="https://quanpu.wang/">幻域 · 渲染笔记</a></span> · 
+
+    
+    
+    <span>
+        Powered by
+        <a href="https://gohugo.io/?utm_source=papermod" rel="noopener" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" id="top-link" class="top-link hidden" aria-label="go to top" title="Go to Top (Alt + G)" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevrons-up">
+        <polyline points="17 11 12 6 7 11"></polyline>
+        <polyline points="17 18 12 13 7 18"></polyline>
+    </svg>
+</a>
+<script defer src="/js/custom/site.6b88e051b26e72b9a7e34c2968f450be106dbe079194e862c9c7156a4285a14e.js"></script>
+<script defer src="/js/custom/knowledge-graph.a5aedee3c6ec45a1cccd520e5f7eb70f7ec2f6ffe122488a0a9a8de70eec0190.js"></script>
+
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var toplink = document.getElementById("top-link");
+    window.onscroll = function () {
+        const scrollThreshold = window.innerHeight;
+        if (document.body.scrollTop > scrollThreshold || document.documentElement.scrollTop > scrollThreshold) {
+            toplink.classList.remove("hidden");
+        } else {
+            toplink.classList.add("hidden");
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+<script>
+    document.querySelectorAll('pre > code').forEach((codeblock) => {
+        const container = codeblock.parentNode.parentNode;
+
+        const copybutton = document.createElement('button');
+        copybutton.classList.add('copy-code');
+        copybutton.innerHTML = '复制';
+
+        function copyingDone() {
+            copybutton.innerHTML = '已复制！';
+            setTimeout(() => {
+                copybutton.innerHTML = '复制';
+            }, 2000);
+        }
+
+        copybutton.addEventListener('click', (cb) => {
+            if ('clipboard' in navigator) {
+                navigator.clipboard.writeText(codeblock.textContent);
+                copyingDone();
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(codeblock);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                document.execCommand('copy');
+                copyingDone();
+            } catch (e) { };
+            selection.removeRange(range);
+        });
+
+        if (container.classList.contains("highlight")) {
+            container.appendChild(copybutton);
+        } else if (container.parentNode.firstChild == container) {
+            
+        } else if (codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName == "TABLE") {
+            
+            codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(copybutton);
+        } else {
+            
+            codeblock.parentNode.appendChild(copybutton);
+        }
+    });
+</script>
+</body>
+
+</html>
