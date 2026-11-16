@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/">
+  <channel>
+    <title>透明度 on 幻域 · 渲染笔记</title>
+    <link>https://quanpu.wang/tags/%E9%80%8F%E6%98%8E%E5%BA%A6/</link>
+    <description>Recent content in 透明度 on 幻域 · 渲染笔记</description>
+    <generator>Hugo</generator>
+    <language>zh-cn</language>
+    <lastBuildDate>Tue, 20 Oct 2026 00:00:00 +0800</lastBuildDate>
+    <atom:link href="https://quanpu.wang/tags/%E9%80%8F%E6%98%8E%E5%BA%A6/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>透明的顺序问题：OIT 三代方案与各自的代价</title>
+      <link>https://quanpu.wang/posts/oit%E4%B8%89%E4%BB%A3%E6%96%B9%E6%A1%88/</link>
+      <pubDate>Tue, 20 Oct 2026 00:00:00 +0800</pubDate>
+      <guid>https://quanpu.wang/posts/oit%E4%B8%89%E4%BB%A3%E6%96%B9%E6%A1%88/</guid>
+      <description>半透明的结果依赖绘制顺序，而 z 缓冲每像素只存一个东西。从这条矛盾出发，讲清三代 OIT 方案——排序、多趟剥离、单趟近似——各自换来了什么、付出了什么，以及两个容易踩的坑。</description>
+    </item>
+  </channel>
+</rss>

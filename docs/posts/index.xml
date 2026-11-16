@@ -6,8 +6,15 @@
     <description>Recent content in 文章 on 幻域 · 渲染笔记</description>
     <generator>Hugo</generator>
     <language>zh-cn</language>
-    <lastBuildDate>Tue, 22 Sep 2026 00:00:00 +0800</lastBuildDate>
+    <lastBuildDate>Tue, 20 Oct 2026 00:00:00 +0800</lastBuildDate>
     <atom:link href="https://quanpu.wang/posts/index.xml" rel="self" type="application/rss+xml" />
+    <item>
+      <title>透明的顺序问题：OIT 三代方案与各自的代价</title>
+      <link>https://quanpu.wang/posts/oit%E4%B8%89%E4%BB%A3%E6%96%B9%E6%A1%88/</link>
+      <pubDate>Tue, 20 Oct 2026 00:00:00 +0800</pubDate>
+      <guid>https://quanpu.wang/posts/oit%E4%B8%89%E4%BB%A3%E6%96%B9%E6%A1%88/</guid>
+      <description>半透明的结果依赖绘制顺序，而 z 缓冲每像素只存一个东西。从这条矛盾出发，讲清三代 OIT 方案——排序、多趟剥离、单趟近似——各自换来了什么、付出了什么，以及两个容易踩的坑。</description>
+    </item>
     <item>
       <title>骨骼蒙皮：三个引擎都不在顶点着色器里做</title>
       <link>https://quanpu.wang/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/</link>
@@ -28,13 +35,6 @@
       <pubDate>Tue, 22 Sep 2026 00:00:00 +0800</pubDate>
       <guid>https://quanpu.wang/posts/%E6%B3%95%E7%BA%BF%E7%9F%A9%E9%98%B5/</guid>
       <description>从 n·t = 0 这个约束出发推导法线变换矩阵，说清它唯一到什么程度、什么时候可以省掉、以及矩阵奇异时该怎么办。</description>
-    </item>
-    <item>
-      <title>这个博客要写什么</title>
-      <link>https://quanpu.wang/posts/hello/</link>
-      <pubDate>Tue, 22 Sep 2026 00:00:00 +0800</pubDate>
-      <guid>https://quanpu.wang/posts/hello/</guid>
-      <description>三件事：读论文、读源码、写渲染器。以及一条写作原则——每篇都要有能被验证的东西。</description>
     </item>
   </channel>
 </rss>

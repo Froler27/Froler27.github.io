@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="zh" dir="auto" data-theme="auto">
+
+<head><meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+<meta name="robots" content="index, follow">
+<title>透明的顺序问题：OIT 三代方案与各自的代价 | 幻域 · 渲染笔记</title>
+<meta name="keywords" content="图形学, 渲染, 透明度, OIT">
+<meta name="description" content="半透明的结果依赖绘制顺序，而 z 缓冲每像素只存一个东西。从这条矛盾出发，讲清三代 OIT 方案——排序、多趟剥离、单趟近似——各自换来了什么、付出了什么，以及两个容易踩的坑。">
+<meta name="author" content="Froler27">
+<link rel="canonical" href="https://quanpu.wang/posts/oit%E4%B8%89%E4%BB%A3%E6%96%B9%E6%A1%88/">
+<link crossorigin="anonymous" href="/assets/css/stylesheet.50ecde4005c3bd2dd2c4a4748aa64771647883ac23177ce0104a475fa0f48b59.css" integrity="sha256-UOzeQAXDvS3SxKR0iqZHcWR4g6wjF3zgEEpHX6D0i1k=" rel="preload stylesheet" as="style">
+<link rel="icon" href="https://quanpu.wang/favicon.ico">
+<link rel="icon" type="image/png" sizes="16x16" href="https://quanpu.wang/favicon-16x16.png">
+<link rel="icon" type="image/png" sizes="32x32" href="https://quanpu.wang/favicon-32x32.png">
+<link rel="apple-touch-icon" href="https://quanpu.wang/apple-touch-icon.png">
+<link rel="mask-icon" href="https://quanpu.wang/safari-pinned-tab.svg">
+<meta name="theme-color" content="#2e2e33">
+<meta name="msapplication-TileColor" content="#2e2e33">
+<link rel="alternate" hreflang="zh" href="https://quanpu.wang/posts/oit%E4%B8%89%E4%BB%A3%E6%96%B9%E6%A1%88/">
+<noscript>
+    <style>
+        #theme-toggle,
+        .top-link {
+            display: none;
+        }
+
+    </style>
+    <style>
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --theme: rgb(29, 30, 32);
+                --entry: rgb(46, 46, 51);
+                --primary: rgb(218, 218, 219);
+                --secondary: rgb(155, 156, 157);
+                --tertiary: rgb(65, 66, 68);
+                --content: rgb(196, 196, 197);
+                --code-block-bg: rgb(46, 46, 51);
+                --code-bg: rgb(55, 56, 62);
+                --border: rgb(51, 51, 51);
+                color-scheme: dark;
+            }
+
+            .list {
+                background: var(--theme);
+            }
+
+            .toc {
+                background: var(--entry);
+            }
+        }
+
+    </style>
+</noscript>
+<script>
+    if (localStorage.getItem("pref-theme") === "dark") {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else if (localStorage.getItem("pref-theme") === "light") {
+       document.querySelector("html").dataset.theme = 'light';
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector("html").dataset.theme = 'dark';
+    } else {
+        document.querySelector("html").dataset.theme = 'light';
+    }
+
+</script>
+<link rel="stylesheet" href="/katex/katex.min.css">
+<script defer src="/katex/katex.min.js"></script>
+<script defer src="/katex/auto-render.min.js"
+  onload="renderMathInElement(document.body, {
+    delimiters: [
+      {left: '$$', right: '$$', display: true},
+      {left: '$', right: '$',  display: false}
+    ],
+    throwOnError: false
+  });"></script><script>document.documentElement.classList.add("js");</script><meta name="theme-color" media="(prefers-color-scheme: light)" content="#f4f8ff">
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#05080f">
+<meta name="color-scheme" content="light dark">
+<meta property="og:url" content="https://quanpu.wang/posts/oit%E4%B8%89%E4%BB%A3%E6%96%B9%E6%A1%88/">
+  <meta property="og:site_name" content="幻域 · 渲染笔记">
+  <meta property="og:title" content="透明的顺序问题：OIT 三代方案与各自的代价">
+  <meta property="og:description" content="半透明的结果依赖绘制顺序，而 z 缓冲每像素只存一个东西。从这条矛盾出发，讲清三代 OIT 方案——排序、多趟剥离、单趟近似——各自换来了什么、付出了什么，以及两个容易踩的坑。">
+  <meta property="og:locale" content="zh_cn">
+  <meta property="og:type" content="article">
+    <meta property="article:section" content="posts">
+    <meta property="article:published_time" content="2026-10-20T00:00:00+08:00">
+    <meta property="article:modified_time" content="2026-10-20T00:00:00+08:00">
+    <meta property="article:tag" content="图形学">
+    <meta property="article:tag" content="渲染">
+    <meta property="article:tag" content="透明度">
+    <meta property="article:tag" content="OIT">
+    <meta property="og:image" content="https://quanpu.wang/images/brand/og-1200x630.png">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://quanpu.wang/images/brand/og-1200x630.png">
+  <meta name="twitter:title" content="透明的顺序问题：OIT 三代方案与各自的代价">
+  <meta name="twitter:description" content="半透明的结果依赖绘制顺序，而 z 缓冲每像素只存一个东西。从这条矛盾出发，讲清三代 OIT 方案——排序、多趟剥离、单趟近似——各自换来了什么、付出了什么，以及两个容易踩的坑。">
+
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position":  1 ,
+      "name": "文章",
+      "item": "https://quanpu.wang/posts/"
+    }, 
+    {
+      "@type": "ListItem",
+      "position":  2 ,
+      "name": "透明的顺序问题：OIT 三代方案与各自的代价",
+      "item": "https://quanpu.wang/posts/oit%E4%B8%89%E4%BB%A3%E6%96%B9%E6%A1%88/"
+    }
+  ]
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BlogPosting",
+  "headline": "透明的顺序问题：OIT 三代方案与各自的代价",
+  "name": "透明的顺序问题：OIT 三代方案与各自的代价",
+  "description": "半透明的结果依赖绘制顺序，而 z 缓冲每像素只存一个东西。从这条矛盾出发，讲清三代 OIT 方案——排序、多趟剥离、单趟近似——各自换来了什么、付出了什么，以及两个容易踩的坑。",
+  "keywords": [
+    "图形学", "渲染", "透明度", "OIT"
+  ],
+  "articleBody": "结论 半透明的合成依赖顺序，而 z 缓冲每像素只存一个东西。这两句话凑在一起，就是 OIT（Order-Independent Transparency，顺序无关透明）存在的全部理由。\n三种走法，本质是三种付账方式：\n走法 换来什么 付出什么 按物体排序 几乎零成本 只是近似：互相穿透的物体、自重叠的凹形网格，排不准 多趟剥离 精确 每剥一层，把所有透明几何重画一遍 单趟近似 一趟画完 放弃顺序，靠一个加权平均去猜 后两种各自又长出了自己的问题：剥离要问\"第二个深度缓冲从哪来\"，近似要问\"平均到底准不准\"。这篇文章把三代讲一遍，最后会落到两个实际会踩的坑上。\n一、问题：为什么不能直接 glEnable(GL_BLEND) over 是不满足交换律的 最常见的透明混合叫 over：\n$$ C_o = \\alpha_s C_s + (1-\\alpha_s) C_d $$源颜色按自己的 alpha 掺进去，剩下的让给目标。看起来挺对称——但它不对称。\n拿两个面举例：一个红色 $\\alpha = 0.8$，一个蓝色 $\\alpha = 0.3$，背景是黑的。\n绘制顺序 结果 先蓝后红 $0.8 \\cdot \\text{红} + 0.2 \\cdot (0.3 \\cdot \\text{蓝}) = (0.80,\\ 0,\\ 0.06)$ 先红后蓝 $0.3 \\cdot \\text{蓝} + 0.7 \\cdot (0.8 \\cdot \\text{红}) = (0.56,\\ 0,\\ 0.30)$ 同一个场景，两个结果。 这不是精度问题，是 over 本身的定义。\n顺带排除一个常见误解：“两个面 alpha 一样就无所谓\"是错的。 上面那组用的是 0.8 和 0.3，但把它们都换成 0.5，两种顺序依然给出不同结果——因为先画的那个会先和背景混一次，后画的又在这个结果上混。over 只有在颜色相同（或者 alpha 为 0）时才可交换，跟 alpha 是否相等无关。\n而 GPU 是按提交顺序画的 应用程序把透明物体按什么顺序提交，GPU 就按什么顺序画。它不知道哪个在前哪个在后——因为 z 缓冲只知道\"这个像素最近的那个是谁”，它每像素只存一个深度、一个颜色。\n所以：\n你要么告诉它顺序（排序）， 要么想办法不依赖顺序（OIT）。\n二、排序：最简单，也最不牢靠 最直觉的做法是按物体排：算每个透明物体质心到相机的距离，从远到近提交。\n它便宜、不需要额外内存、也不需要任何特殊硬件支持——所以它是绝大多数引擎的默认做法，包括我自己引擎里的透明 pass（按住一个键切换的那条分支，就是它）。\n它错在哪 ① 质心只是一个代表点。 两个物体，A 的质心比 B 远，但 A 的一部分伸到了 B 前面。\n② 互相穿透的物体，怎么排都是错的。 一艘船插进水里、一扇门穿过另一扇门——除非把网格打散，否则在任何视角下都不存在一个正确的顺序。\n③ 单个凹形网格自重叠时也会出问题。 你不需要两个物体，一个\"回\"字形的模型自己就能和自己打架。\n两个实用补救 关掉深度写入。 做透明时仍然正常做深度测试，但幸存的表面不更新深度缓冲：\nglDepthMask(GL_FALSE); 这样透明物体会至少出现，而不是随相机旋转突然出现又消失——后者比\"顺序错\"更刺眼，因为它会闪。\n每个透明网格画两遍：先背面、后正面。对闭合的凸壳，这一招能把\"同一个物体内部\"的顺序修对，剩下只需要处理物体之间。\n三、深度剥离：用多趟换正确 核心想法：不排了。一趟剥一层。\n怎么剥 正常渲一遍，深度缓冲里是最近的那层 再渲一遍，把比上一层更近的片元全部枪毙，剩下的里面再取最近的——这就是第二层 重复，直到没有片元剩下 每一趟你得到\"某一层的颜色\"，把它们按顺序合起来，就是正确结果。\n关键是第 2 步那句\"枪毙\"：它需要拿上一趟的深度当参照。也就是每个像素要同时做两次深度判断——一次对\"上一层\"，一次对\"这一趟要记录的新缓冲\"。\n2001 年：没有双深度缓冲，那就借一台 这是 Everitt 在 2001 年遇到的真实问题，原话是：\n“There is no ‘dual depth buffer’ extension to OpenGL, so what can we do?”\n他的转念值得抄下来：\n“Just need one depth test with writeable depth buffer — the other can be read-only.”\n你要的不是两个深度缓冲，是\"一次可写 + 一次只读\"的深度测试。 而阴影贴图恰好就是一次只读的深度测试：\n“Shadow mapping is a read-only depth test!”\n阴影贴图做的事是：拿一张上一趟渲出来的深度图，把当前片元投影到那张图对应的位置，比较，决定留不留。这和一层的剥离要做的，结构上完全一样。\n唯一别扭的地方：阴影贴图的深度图是\"从光源看的\"，投影出来落在屏幕别的地方。而剥离要的是同一个像素。\n⇒ 解法是：把那个\"光源\"设成相机自己。投影落回原像素，取样就变成了 1:1 的逐像素比较。\n代价：阴影贴图那条路走的是纹理硬件（要高精度地做透视校正与投影），而普通的深度光栅化不需要透视校正。同一个深度经过两条路，会算出差一点点——于是\"该相等的判成不等\"，一层被剥两次，或者某层被跳过。当时得靠一个专门的纹理着色器（DEPTH_REPLACE）把两边拉到同一个精度上。\n真正的代价 每剥一层，就要把所有透明几何重画一遍。 你场景里有 10 层重叠的透明面，就是 10 趟完整重绘。\n而这个成本主要落在顶点上——Bavoil 和 Myers 在他们 2008 年的演示程序里说得很直接：默认模型（Stanford 龙，80 万+ 三角形）下 GPU 主要还是顶点瓶颈，性能与几何趟数成反比。\n所以优化的方向很清楚：减少趟数。\n四、双重深度剥离：N → N/2+1 既然前后都能剥，那就一趟从两头各剥一层。\n2008 年 Bavoil 和 Myers 的做法把趟数从 $N$ 降到 $N/2 + 1$。\n第一关：中间那层会被算两次 最直觉的写法是：开两块深度缓冲，一张 RGB 纹理给\"从后往前\"混，一张 RGBA 给\"从前往后\"混。\n但两条前沿从两头往中间推，快到中间时，中间那一层会被【前后两个方向各算一次】。\n解法是滑动窗口：不直接剥\"最前\"和\"最后\"，而是让两条前沿各自踩着一个两层的窗口向内推进。\n第二关：第二个深度缓冲从哪来 七年后，答案从\"借\"变成了\"造\"。\n他们把 min-max 深度缓冲实现成一张 RG32F 的【颜色纹理】，然后用 MAX 混合去做比较：\n// 写进去的是这个三分量 float3(-depth, depth, 1 - Adst) MAX(a, b) 的字面意思就是\"谁大留谁\"——那本身就是一个比较器。 三个分量各自单调，所以一个 MAX 混合能同时管三件事：\n分量 MAX 出来的结果 -depth 最近的深度（-depth 最大 ⇔ depth 最小） depth 最远的深度 1 - Adst 累加出来的覆盖（Adst 每趟只减，所以 1-Adst 只增，MAX 拿到的就是最新那个） 代价是一句话：“We essentially turn off the hardware depth buffer.” —— 深度测试是用混合自己搭的。\n三个附件 附件 装什么 格式 RT0 min-max 深度缓冲 RG32F RT1 前面剥下来的片元（待 under 混合） RGBA8 RT2 后面剥下来的片元（待 over 混合） RGBA8 一个绕法：那代硬件不支持按附件分别设混合方程，所以三个附件都得用同一种。他们的做法是统一用 MAX，并把 RT1 / RT2 每趟清成 0——“跟 0 取 MAX\"就等于直接覆盖。\n每一趟做什么 清 RT1、RT2 为 0\n把所有透明几何画一遍到这三个附件\n判断片元属于前面还是后面：\nif (fragDepth == nearestDepth) { /* 前面 */ } else { /* 后面 */ } 两条前沿相遇时，一律算前面——这是防重复计数的那一刀。\n写出去：RT0 拿极值，RT1 或 RT2 拿颜色\n最后怎么合 前面那半用 under 攒（从前往后渲染要用的那条）：\n$$ C_{dst} = A_{dst}(A_{src}C_{src}) + C_{dst} $$后面那半用 over 攒（最常见那个）。\n最后两张图再用一次 under 合体——注意方向：under 的意思是\"源跑到目标下面去”，所以这一步是把后面那半塞到前面那半的底下，因为从眼睛看，前面那半确实压在后面那半上面。\n代价 early-z 没了。\n“since dual peeling does not use any depth test, it disables the early-z optimizations of the hardware”\n必然的——你把硬件深度测试关掉、自己用混合搭了一个，硬件那套\"先测深度再跑着色器\"的优化自然一起没了。\n所以这一项技术是一进一出的账：趟数减半，early-z 丢掉。论文没有给相抵之后的净收益，这里也不替它算。\n五、转身：单趟近似 多趟这条路，走到最后撞上的是几何成本。于是另一条路被翻了出来：干脆不排序，也不多趟。\n2008 年的加权平均 思路很聪明，从一个平凡事实出发：\n如果一个像素上所有片元的颜色都一样，那顺序就无所谓了。\n那颜色不一样怎么办？把它们换成一个平均色。\n用 alpha 加权：\n$$ C = \\frac{\\sum_i C_i \\alpha_i}{\\sum_i \\alpha_i} $$平均 alpha 取 $\\bar\\alpha = \\frac{1}{n}\\sum_i \\alpha_i$，其中 $n$ 是这个像素的片元数（深度复杂度）。\n把每个片元都替换成\"平均色 + 平均 alpha\"，叠 $n$ 次，就得到一个只依赖 $C$、$\\bar\\alpha$、$n$ 的结果：\n$$ C_{dst} = C\\left[1-(1-\\bar\\alpha)^n\\right] + C_{bg}\\,(1-\\bar\\alpha)^n $$一趟几何 + 一次后处理，就完事了。 而且不需要顺序。\n但它有两个假设 假设一：$n$ 个片元的 alpha 都等于平均值。\n$(1-\\bar\\alpha)^n$ 这一项，只有\"每个片元都是 $\\bar\\alpha$“时才精确。真实场景里一层是 0.9、一层是 0.05，这个式子就会偏。\n假设二：远近无所谓。\n权重只有 alpha，一个深度都没用到。于是\"贴着你脸的一层玻璃\"和\"远处的一层雾\"权重一样。\n2013 年改掉了这两个假设 后来的加权混合（weighted blended）在两点上做了修正：\n① 权重里加进深度——越近的表面权重越大。一个常见的实现长这样：\nfloat weight = clamp( pow(min(1.0, color.a * 10.0) + 0.01, 3.0) // 颜色因子 * 1e8 * pow(1.0 - gl_FragCoord.z * 0.9, 3.0), // 深度因子 1e-2, 3e3); 注意：它不是一个从物理推出来的式子，是一个启发式。 而且必须按你场景的深度范围与透明度去调——拿适合云和烟的参数去渲一层薄玻璃，结果就不好看。\n★ 一个能说明它有多\"手工\"的细节：同一篇教程里，「总览」给的权重函数和「细节」示例代码里实现的不是同一个：\n出处 权重 总览 $\\max\\!\\big(\\min(1, \\max_3(\\text{color})\\cdot\\alpha),\\ \\alpha\\big)\\cdot \\operatorname{clamp}\\!\\big(\\tfrac{0.03}{10^{-5}+(z/200)^4}, 10^{-2}, 3\\!\\times\\!10^{3}\\big)$ 示例代码 $\\operatorname{clamp}\\!\\big((\\min(1,10\\alpha)+0.01)^3\\cdot 10^{8}\\cdot(1-0.9z)^3,\\ 10^{-2}, 3\\!\\times\\!10^{3}\\big)$ （$z$ 即 gl_FragCoord.z。）\n⇒ 换权重函数就是换算法——因为在这条路上，它是唯一的启发式。\n② 不再用 $(1-\\bar\\alpha)^n$ 近似，改用真实的 alpha 覆盖：\n$$ u = 1 - \\prod_i (1-\\alpha_i) $$⇒ 这就是为什么现在你看到的那些实现里，都会有一个\"看起来很奇怪\"的权重函数和一句 1.0 - revealage。 它们不是经验常数堆出来的，它们是对上一条近似里两个假设的修正。\n它的形状 现在主流实现只要两个附件：\n附件 装什么 累加 $\\sum_i C_i \\alpha_i w_i$ 揭示（revealage） $\\prod_i (1-\\alpha_i)$ 最后一次全屏 pass：\n$$C = \\frac{\\text{累加}}{\\text{揭示}}$$，再用 $1 - \\text{揭示}$ 当 alpha 合到不透明场景上。\n⚠️ 一个小陷阱：如果\"揭示\"用 R8 存，层数一多，乘积会趋近 0，而 R8 在 0 附近的分辨率有限。所以压缩格式的选择在这里不是随便的。\n六、两个容易踩的坑 坑一：两层深度\"差不多” 先说结论：接近但不等，完全没问题。\n深度剥离做的是严格比较，没有 epsilon、没有阈值。0.5000001 和 0.5000002 跟 0.1 和 0.9 是一样的处理。\n会出问题的不是\"接近\"，是\"同一个深度被两条路算了两遍\"。 也就是 2001 那个问题：一边走光栅化、一边走纹理，算出来差一点点。2008 之后两边都是 32 位浮点，这个问题基本消失了——论文的说法就是可以 “compare them without any bias”。\n但\"完全相等\"是另一回事。 两个严格重合的透明面（共面贴片、同一位置摆了两份、双面材质），会撞上退化：\n用严格不等号（GREATER / LESS）的实现，会丢掉其中一个——它既不是\"这一层的赢家\"，下一趟又通不过\"严格更远\"的判断 用相等匹配的实现（“深度等于上一层的，就是这一层”），两个都会通过，于是都参与混合 ⚠️ 这是一个我查到的、两处资料说法不一致的地方，而且我没找到任何原文正面讨论过重合面。实践上，重合面通常是建模问题（重复几何、两个共面贴片），该在导出资产时清掉——它不该由渲染器来兜。\n真正需要小心的是\"背靠背的两片三角\"（树叶卡、纸片）。如果两片严格共面，就会踩这个退化。\n坑二：以为趟数就是层数 深度剥离的趟数不等于场景里\"有多少层透明面\"，而是这个像素上最多叠了几层。而且它可能到处都是 2 层，只有一小块区域叠了 30 层。\n这就是为什么所有实现都在谈\"提前退出\"：\n前向剥离可以先画最要紧的层，所以能提前停：当一个像素的 alpha 逼近 1，或者某一趟画出来的像素数低于阈值，就可以收工 从后往前剥就不行了——最近的层最后画，提前停会把它丢掉 双向那一版还多了一条更实用的性质：任何时候停下，最前面那层一定已经拿到了。\n七、该选哪个 看你的场景，而不是看哪篇论文更新。\n你的情况 选 透明物体少、大多是凸壳、不太重叠 排序。够用，成本最低 有互相穿透、有大量重叠层、要精确 多趟剥离。接受 N 趟重绘 粒子、烟、雾、头发这类大量薄片 加权混合。顺序本来就不重要，单趟快得多 少数几个不透明感很强的玻璃物件 ⚠️ 加权混合会不好看——它最怕\"近乎不透明\"的层 最后一条值得展开：加权混合最大的弱点是忽略顺序。一层 $\\alpha=0.95$ 的玻璃和它后面的一层 $\\alpha=0.05$ 的雾，在加权平均里会互相污染。它擅长的是\"很多层、每层都很淡\"；不擅长\"少几层、每层都很实\"。\n参考 Cass Everitt, Interactive Order-Independent Transparency, NVIDIA, 2001 —— 深度剥离的出处。原始材料是一份 14 页的演示稿。 Louis Bavoil, Kevin Myers, Order Independent Transparency with Dual Depth Peeling, NVIDIA, 2008 —— 双重深度剥离，以及加权平均法的最早成型。PDF Morgan McGuire, Louis Bavoil, Weighted Blended Order-Independent Transparency, JCGT, 2013。论文 Tomas Akenine-Möller et al., Real-Time Rendering, 4th ed., §5.5 LearnOpenGL, Guest Articles: OIT 两篇 说明：本文的机制描述来自上面这些一手材料，但图例与排版是我自己的；几处\"两种实现行为不同\"的对照（第六节）是我把不同来源并排读出来的，原始材料本身没有正面讨论过这些退化情形。\n",
+  "wordCount" : "664",
+  "inLanguage": "zh",
+  "image":"https://quanpu.wang/images/brand/og-1200x630.png","datePublished": "2026-10-20T00:00:00+08:00",
+  "dateModified": "2026-10-20T00:00:00+08:00",
+  "author":{
+    "@type": "Person",
+    "name": "Froler27"
+  },
+  "mainEntityOfPage": {
+    "@type": "WebPage",
+    "@id": "https://quanpu.wang/posts/oit%E4%B8%89%E4%BB%A3%E6%96%B9%E6%A1%88/"
+  },
+  "publisher": {
+    "@type": "Organization",
+    "name": "幻域 · 渲染笔记",
+    "logo": {
+      "@type": "ImageObject",
+      "url": "https://quanpu.wang/favicon.ico"
+    }
+  }
+}
+</script>
+</head>
+
+<body id="top">
+    <a class="skip-link" href="#main">跳到正文</a>
+    <div class="scroll-progress" aria-hidden="true"></div>
+    <header class="header">
+    <nav class="header-nav">
+        <div class="logo">
+            <a href="https://quanpu.wang/" accesskey="h" title="幻域 · 渲染笔记 (Alt + H)">
+                    <img src="https://quanpu.wang/images/logo.svg" alt="" aria-label="logo"
+                        height="34">幻域 · 渲染笔记</a>
+            <div class="logo-switches">
+                <button id="theme-toggle" class="theme-toggle" accesskey="t" title="(Alt + T)" aria-label="Toggle theme">
+                    <svg class="moon" xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                    <svg class="sun" xmlns="http://www.w3.org/2000/svg" width="17" height="17" viewBox="0 0 24 24"
+                        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                        stroke-linejoin="round">
+                        <circle cx="12" cy="12" r="5"></circle>
+                        <line x1="12" y1="1" x2="12" y2="3"></line>
+                        <line x1="12" y1="21" x2="12" y2="23"></line>
+                        <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                        <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                        <line x1="1" y1="12" x2="3" y2="12"></line>
+                        <line x1="21" y1="12" x2="23" y2="12"></line>
+                        <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                        <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+        <ul id="menu" class="menu">
+            <li>
+                <a href="https://quanpu.wang/posts/" title="文章">
+                    <span>文章</span>
+                </a>
+            </li>
+            <li>
+                <a href="https://quanpu.wang/knowledge/" title="图谱">
+                    <span>图谱</span>
+                </a>
+            </li>
+            <li>
+                <a href="https://quanpu.wang/tags/" title="标签">
+                    <span>标签</span>
+                </a>
+            </li>
+            <li>
+                <a href="https://quanpu.wang/search/" title="搜索 (Alt &#43; /)" accesskey=/>
+                    <span>搜索</span>
+                </a>
+            </li>
+            <li>
+                <a href="https://quanpu.wang/about/" title="关于">
+                    <span>关于</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+</header>
+<main class="main" id="main">
+
+<article class="post-single">
+  <header class="post-header">
+    <nav class="breadcrumbs" role="navigation" aria-label="Breadcrumb">
+            <a href="/">主页</a>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-right">
+                <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
+            <a href="/posts/">文章</a>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-right">
+            <polyline points="9 18 15 12 9 6"></polyline>
+        </svg>
+        <span class="breadcrumbs-current">透明的顺序问题：OIT 三代方案与各自的代价</span>
+</nav>
+    <h1 class="post-title entry-hint-parent">
+      透明的顺序问题：OIT 三代方案与各自的代价
+    </h1>
+    <div class="post-meta">
+
+<span title='2026-10-20 00:00:00 +0800 CST'>2026-10-20</span>&nbsp;·&nbsp;<span>4 分钟</span>&nbsp;·&nbsp;<span>Froler27</span>
+
+</div>
+  </header> <details class="toc" >
+    <summary accesskey="c" title="(Alt + C)">
+        <span class="title">目录</span>
+    </summary>
+
+    <div class="inner"><ul>
+            <li>
+                <a href="#%e7%bb%93%e8%ae%ba" aria-label="结论">结论</a></li>
+            <li>
+                <a href="#%e4%b8%80%e9%97%ae%e9%a2%98%e4%b8%ba%e4%bb%80%e4%b9%88%e4%b8%8d%e8%83%bd%e7%9b%b4%e6%8e%a5-glenablegl_blend" aria-label="一、问题：为什么不能直接 glEnable(GL_BLEND)">一、问题：为什么不能直接 glEnable(GL_BLEND)</a><ul>
+                    
+            <li>
+                <a href="#over-%e6%98%af%e4%b8%8d%e6%bb%a1%e8%b6%b3%e4%ba%a4%e6%8d%a2%e5%be%8b%e7%9a%84" aria-label="over 是不满足交换律的">over 是不满足交换律的</a></li>
+            <li>
+                <a href="#%e8%80%8c-gpu-%e6%98%af%e6%8c%89%e6%8f%90%e4%ba%a4%e9%a1%ba%e5%ba%8f%e7%94%bb%e7%9a%84" aria-label="而 GPU 是按提交顺序画的">而 GPU 是按提交顺序画的</a></li></ul>
+            </li>
+            <li>
+                <a href="#%e4%ba%8c%e6%8e%92%e5%ba%8f%e6%9c%80%e7%ae%80%e5%8d%95%e4%b9%9f%e6%9c%80%e4%b8%8d%e7%89%a2%e9%9d%a0" aria-label="二、排序：最简单，也最不牢靠">二、排序：最简单，也最不牢靠</a><ul>
+                    
+            <li>
+                <a href="#%e5%ae%83%e9%94%99%e5%9c%a8%e5%93%aa" aria-label="它错在哪">它错在哪</a></li>
+            <li>
+                <a href="#%e4%b8%a4%e4%b8%aa%e5%ae%9e%e7%94%a8%e8%a1%a5%e6%95%91" aria-label="两个实用补救">两个实用补救</a></li></ul>
+            </li>
+            <li>
+                <a href="#%e4%b8%89%e6%b7%b1%e5%ba%a6%e5%89%a5%e7%a6%bb%e7%94%a8%e5%a4%9a%e8%b6%9f%e6%8d%a2%e6%ad%a3%e7%a1%ae" aria-label="三、深度剥离：用多趟换正确">三、深度剥离：用多趟换正确</a><ul>
+                    
+            <li>
+                <a href="#%e6%80%8e%e4%b9%88%e5%89%a5" aria-label="怎么剥">怎么剥</a></li>
+            <li>
+                <a href="#2001-%e5%b9%b4%e6%b2%a1%e6%9c%89%e5%8f%8c%e6%b7%b1%e5%ba%a6%e7%bc%93%e5%86%b2%e9%82%a3%e5%b0%b1%e5%80%9f%e4%b8%80%e5%8f%b0" aria-label="2001 年：没有双深度缓冲，那就借一台">2001 年：没有双深度缓冲，那就借一台</a></li>
+            <li>
+                <a href="#%e7%9c%9f%e6%ad%a3%e7%9a%84%e4%bb%a3%e4%bb%b7" aria-label="真正的代价">真正的代价</a></li></ul>
+            </li>
+            <li>
+                <a href="#%e5%9b%9b%e5%8f%8c%e9%87%8d%e6%b7%b1%e5%ba%a6%e5%89%a5%e7%a6%bbn--n21" aria-label="四、双重深度剥离：N → N/2&#43;1">四、双重深度剥离：N → N/2+1</a><ul>
+                    
+            <li>
+                <a href="#%e7%ac%ac%e4%b8%80%e5%85%b3%e4%b8%ad%e9%97%b4%e9%82%a3%e5%b1%82%e4%bc%9a%e8%a2%ab%e7%ae%97%e4%b8%a4%e6%ac%a1" aria-label="第一关：中间那层会被算两次">第一关：中间那层会被算两次</a></li>
+            <li>
+                <a href="#%e7%ac%ac%e4%ba%8c%e5%85%b3%e7%ac%ac%e4%ba%8c%e4%b8%aa%e6%b7%b1%e5%ba%a6%e7%bc%93%e5%86%b2%e4%bb%8e%e5%93%aa%e6%9d%a5" aria-label="第二关：第二个深度缓冲从哪来">第二关：第二个深度缓冲从哪来</a></li>
+            <li>
+                <a href="#%e4%b8%89%e4%b8%aa%e9%99%84%e4%bb%b6" aria-label="三个附件">三个附件</a></li>
+            <li>
+                <a href="#%e6%af%8f%e4%b8%80%e8%b6%9f%e5%81%9a%e4%bb%80%e4%b9%88" aria-label="每一趟做什么">每一趟做什么</a></li>
+            <li>
+                <a href="#%e6%9c%80%e5%90%8e%e6%80%8e%e4%b9%88%e5%90%88" aria-label="最后怎么合">最后怎么合</a></li>
+            <li>
+                <a href="#%e4%bb%a3%e4%bb%b7" aria-label="代价">代价</a></li></ul>
+            </li>
+            <li>
+                <a href="#%e4%ba%94%e8%bd%ac%e8%ba%ab%e5%8d%95%e8%b6%9f%e8%bf%91%e4%bc%bc" aria-label="五、转身：单趟近似">五、转身：单趟近似</a><ul>
+                    
+            <li>
+                <a href="#2008-%e5%b9%b4%e7%9a%84%e5%8a%a0%e6%9d%83%e5%b9%b3%e5%9d%87" aria-label="2008 年的加权平均">2008 年的加权平均</a></li>
+            <li>
+                <a href="#%e4%bd%86%e5%ae%83%e6%9c%89%e4%b8%a4%e4%b8%aa%e5%81%87%e8%ae%be" aria-label="但它有两个假设">但它有两个假设</a></li>
+            <li>
+                <a href="#2013-%e5%b9%b4%e6%94%b9%e6%8e%89%e4%ba%86%e8%bf%99%e4%b8%a4%e4%b8%aa%e5%81%87%e8%ae%be" aria-label="2013 年改掉了这两个假设">2013 年改掉了这两个假设</a></li>
+            <li>
+                <a href="#%e5%ae%83%e7%9a%84%e5%bd%a2%e7%8a%b6" aria-label="它的形状">它的形状</a></li></ul>
+            </li>
+            <li>
+                <a href="#%e5%85%ad%e4%b8%a4%e4%b8%aa%e5%ae%b9%e6%98%93%e8%b8%a9%e7%9a%84%e5%9d%91" aria-label="六、两个容易踩的坑">六、两个容易踩的坑</a><ul>
+                    
+            <li>
+                <a href="#%e5%9d%91%e4%b8%80%e4%b8%a4%e5%b1%82%e6%b7%b1%e5%ba%a6%e5%b7%ae%e4%b8%8d%e5%a4%9a" aria-label="坑一：两层深度&quot;差不多&rdquo;">坑一：两层深度&quot;差不多&rdquo;</a></li>
+            <li>
+                <a href="#%e5%9d%91%e4%ba%8c%e4%bb%a5%e4%b8%ba%e8%b6%9f%e6%95%b0%e5%b0%b1%e6%98%af%e5%b1%82%e6%95%b0" aria-label="坑二：以为趟数就是层数">坑二：以为趟数就是层数</a></li></ul>
+            </li>
+            <li>
+                <a href="#%e4%b8%83%e8%af%a5%e9%80%89%e5%93%aa%e4%b8%aa" aria-label="七、该选哪个">七、该选哪个</a></li>
+            <li>
+                <a href="#%e5%8f%82%e8%80%83" aria-label="参考">参考</a>
+            </li>
+        </ul>
+    </div>
+</details>
+
+  <div class="post-content md-content"><h2 id="结论">结论<a hidden class="anchor" aria-hidden="true" href="#结论">#</a></h2>
+<p>半透明的合成<strong>依赖顺序</strong>，而 z 缓冲每像素<strong>只存一个东西</strong>。这两句话凑在一起，就是 OIT（Order-Independent Transparency，顺序无关透明）存在的全部理由。</p>
+<p>三种走法，本质是三种<strong>付账方式</strong>：</p>
+<table>
+	<thead>
+			<tr>
+					<th>走法</th>
+					<th>换来什么</th>
+					<th>付出什么</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><strong>按物体排序</strong></td>
+					<td>几乎零成本</td>
+					<td><strong>只是近似</strong>：互相穿透的物体、自重叠的凹形网格，排不准</td>
+			</tr>
+			<tr>
+					<td><strong>多趟剥离</strong></td>
+					<td><strong>精确</strong></td>
+					<td><strong>每剥一层，把所有透明几何重画一遍</strong></td>
+			</tr>
+			<tr>
+					<td><strong>单趟近似</strong></td>
+					<td><strong>一趟画完</strong></td>
+					<td><strong>放弃顺序</strong>，靠一个加权平均去猜</td>
+			</tr>
+	</tbody>
+</table>
+<p>后两种各自又长出了自己的问题：剥离要问&quot;第二个深度缓冲从哪来&quot;，近似要问&quot;平均到底准不准&quot;。这篇文章把三代讲一遍，最后会落到两个实际会踩的坑上。</p>
+<hr>
+<h2 id="一问题为什么不能直接-glenablegl_blend">一、问题：为什么不能直接 <code>glEnable(GL_BLEND)</code><a hidden class="anchor" aria-hidden="true" href="#一问题为什么不能直接-glenablegl_blend">#</a></h2>
+<h3 id="over-是不满足交换律的">over 是不满足交换律的<a hidden class="anchor" aria-hidden="true" href="#over-是不满足交换律的">#</a></h3>
+<p>最常见的透明混合叫 <strong>over</strong>：</p>
+$$
+C_o = \alpha_s C_s + (1-\alpha_s) C_d
+$$<p>源颜色按自己的 alpha 掺进去，剩下的让给目标。看起来挺对称——<strong>但它不对称</strong>。</p>
+<p>拿两个面举例：一个红色 $\alpha = 0.8$，一个蓝色 $\alpha = 0.3$，背景是黑的。</p>
+<table>
+	<thead>
+			<tr>
+					<th>绘制顺序</th>
+					<th>结果</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>先蓝后红</td>
+					<td>$0.8 \cdot \text{红} + 0.2 \cdot (0.3 \cdot \text{蓝}) = (0.80,\ 0,\ 0.06)$</td>
+			</tr>
+			<tr>
+					<td>先红后蓝</td>
+					<td>$0.3 \cdot \text{蓝} + 0.7 \cdot (0.8 \cdot \text{红}) = (0.56,\ 0,\ 0.30)$</td>
+			</tr>
+	</tbody>
+</table>
+<p><strong>同一个场景，两个结果。</strong> 这不是精度问题，是 over 本身的定义。</p>
+<p>顺带排除一个常见误解：<strong>&ldquo;两个面 alpha 一样就无所谓&quot;是错的。</strong> 上面那组用的是 0.8 和 0.3，但把它们都换成 0.5，两种顺序依然给出不同结果——因为先画的那个会先和背景混一次，后画的又在这个结果上混。<strong>over 只有在颜色相同（或者 alpha 为 0）时才可交换</strong>，跟 alpha 是否相等无关。</p>
+<h3 id="而-gpu-是按提交顺序画的">而 GPU 是按提交顺序画的<a hidden class="anchor" aria-hidden="true" href="#而-gpu-是按提交顺序画的">#</a></h3>
+<p>应用程序把透明物体按什么顺序提交，GPU 就按什么顺序画。<strong>它不知道哪个在前哪个在后</strong>——因为 z 缓冲只知道&quot;这个像素最近的那个是谁&rdquo;，<strong>它每像素只存一个深度、一个颜色</strong>。</p>
+<p>所以：</p>
+<blockquote>
+<p>你要么<strong>告诉它顺序</strong>（排序），
+要么<strong>想办法不依赖顺序</strong>（OIT）。</p>
+</blockquote>
+<hr>
+<h2 id="二排序最简单也最不牢靠">二、排序：最简单，也最不牢靠<a hidden class="anchor" aria-hidden="true" href="#二排序最简单也最不牢靠">#</a></h2>
+<p>最直觉的做法是<strong>按物体排</strong>：算每个透明物体质心到相机的距离，从远到近提交。</p>
+<p><strong>它便宜、不需要额外内存、也不需要任何特殊硬件支持</strong>——所以它是绝大多数引擎的默认做法，包括我自己引擎里的透明 pass（按住一个键切换的那条分支，就是它）。</p>
+<h3 id="它错在哪">它错在哪<a hidden class="anchor" aria-hidden="true" href="#它错在哪">#</a></h3>
+<p><strong>① 质心只是一个代表点。</strong> 两个物体，A 的质心比 B 远，但 A 的一部分伸到了 B 前面。</p>
+<p><strong>② 互相穿透的物体，怎么排都是错的。</strong> 一艘船插进水里、一扇门穿过另一扇门——<strong>除非把网格打散</strong>，否则在任何视角下都不存在一个正确的顺序。</p>
+<p><strong>③ 单个凹形网格自重叠时也会出问题。</strong> 你不需要两个物体，一个&quot;回&quot;字形的模型自己就能和自己打架。</p>
+<h3 id="两个实用补救">两个实用补救<a hidden class="anchor" aria-hidden="true" href="#两个实用补救">#</a></h3>
+<p><strong>关掉深度写入。</strong> 做透明时仍然正常做深度<strong>测试</strong>，但幸存的表面<strong>不更新深度缓冲</strong>：</p>
+<pre tabindex="0"><code>glDepthMask(GL_FALSE);
+</code></pre><p>这样透明物体会<strong>至少出现</strong>，而不是随相机旋转突然出现又消失——后者比&quot;顺序错&quot;更刺眼，因为它会闪。</p>
+<p><strong>每个透明网格画两遍</strong>：先背面、后正面。对闭合的凸壳，这一招能把&quot;同一个物体内部&quot;的顺序修对，剩下只需要处理物体之间。</p>
+<hr>
+<h2 id="三深度剥离用多趟换正确">三、深度剥离：用多趟换正确<a hidden class="anchor" aria-hidden="true" href="#三深度剥离用多趟换正确">#</a></h2>
+<p><strong>核心想法</strong>：不排了。<strong>一趟剥一层。</strong></p>
+<h3 id="怎么剥">怎么剥<a hidden class="anchor" aria-hidden="true" href="#怎么剥">#</a></h3>
+<ol>
+<li>正常渲一遍，深度缓冲里是<strong>最近</strong>的那层</li>
+<li>再渲一遍，<strong>把比上一层更近的片元全部枪毙</strong>，剩下的里面<strong>再取最近的</strong>——这就是第二层</li>
+<li>重复，直到没有片元剩下</li>
+</ol>
+<p>每一趟你得到&quot;某一层的颜色&quot;，把它们按顺序合起来，就是正确结果。</p>
+<p><strong>关键是第 2 步那句&quot;枪毙&quot;</strong>：它需要拿<strong>上一趟的深度</strong>当参照。也就是每个像素要同时做<strong>两次深度判断</strong>——一次对&quot;上一层&quot;，一次对&quot;这一趟要记录的新缓冲&quot;。</p>
+<h3 id="2001-年没有双深度缓冲那就借一台">2001 年：没有双深度缓冲，那就借一台<a hidden class="anchor" aria-hidden="true" href="#2001-年没有双深度缓冲那就借一台">#</a></h3>
+<p>这是 Everitt 在 2001 年遇到的真实问题，原话是：</p>
+<blockquote>
+<p><em>&ldquo;There is no &lsquo;dual depth buffer&rsquo; extension to OpenGL, so what can we do?&rdquo;</em></p>
+</blockquote>
+<p>他的转念值得抄下来：</p>
+<blockquote>
+<p><em>&ldquo;Just need one depth test with <strong>writeable</strong> depth buffer — the other can be <strong>read-only</strong>.&rdquo;</em></p>
+</blockquote>
+<p><strong>你要的不是两个深度缓冲，是&quot;一次可写 + 一次只读&quot;的深度测试。</strong> 而<strong>阴影贴图恰好就是一次只读的深度测试</strong>：</p>
+<blockquote>
+<p><em>&ldquo;Shadow mapping <strong>is</strong> a read-only depth test!&rdquo;</em></p>
+</blockquote>
+<p>阴影贴图做的事是：拿一张<strong>上一趟渲出来的深度图</strong>，把当前片元<strong>投影到那张图对应的位置</strong>，比较，决定留不留。<strong>这和一层的剥离要做的，结构上完全一样。</strong></p>
+<p>唯一别扭的地方：阴影贴图的深度图是&quot;从光源看的&quot;，投影出来落在屏幕<strong>别的地方</strong>。而剥离要的是<strong>同一个像素</strong>。</p>
+<p>⇒ 解法是：<strong>把那个&quot;光源&quot;设成相机自己</strong>。投影落回原像素，取样就变成了 1:1 的逐像素比较。</p>
+<p><strong>代价</strong>：阴影贴图那条路走的是<strong>纹理硬件</strong>（要高精度地做透视校正与投影），而普通的深度光栅化<strong>不需要</strong>透视校正。<strong>同一个深度经过两条路，会算出差一点点</strong>——于是&quot;该相等的判成不等&quot;，一层被剥两次，或者某层被跳过。当时得靠一个专门的纹理着色器（<code>DEPTH_REPLACE</code>）把两边拉到同一个精度上。</p>
+<h3 id="真正的代价">真正的代价<a hidden class="anchor" aria-hidden="true" href="#真正的代价">#</a></h3>
+<p><strong>每剥一层，就要把所有透明几何重画一遍。</strong> 你场景里有 10 层重叠的透明面，就是 10 趟完整重绘。</p>
+<p><strong>而这个成本主要落在顶点上</strong>——Bavoil 和 Myers 在他们 2008 年的演示程序里说得很直接：默认模型（Stanford 龙，80 万+ 三角形）下 GPU 主要还是顶点瓶颈，<strong>性能与几何趟数成反比</strong>。</p>
+<p>所以优化的方向很清楚：<strong>减少趟数</strong>。</p>
+<hr>
+<h2 id="四双重深度剥离n--n21">四、双重深度剥离：N → N/2+1<a hidden class="anchor" aria-hidden="true" href="#四双重深度剥离n--n21">#</a></h2>
+<p><strong>既然前后都能剥，那就一趟从两头各剥一层。</strong></p>
+<p>2008 年 Bavoil 和 Myers 的做法把趟数从 $N$ 降到 $N/2 + 1$。</p>
+<h3 id="第一关中间那层会被算两次">第一关：中间那层会被算两次<a hidden class="anchor" aria-hidden="true" href="#第一关中间那层会被算两次">#</a></h3>
+<p>最直觉的写法是：开两块深度缓冲，一张 RGB 纹理给&quot;从后往前&quot;混，一张 RGBA 给&quot;从前往后&quot;混。</p>
+<p><strong>但两条前沿从两头往中间推，快到中间时，中间那一层会被【前后两个方向各算一次】。</strong></p>
+<p>解法是<strong>滑动窗口</strong>：不直接剥&quot;最前&quot;和&quot;最后&quot;，而是让两条前沿各自踩着一个<strong>两层的窗口</strong>向内推进。</p>
+<h3 id="第二关第二个深度缓冲从哪来">第二关：第二个深度缓冲从哪来<a hidden class="anchor" aria-hidden="true" href="#第二关第二个深度缓冲从哪来">#</a></h3>
+<p>七年后，答案从&quot;借&quot;变成了&quot;造&quot;。</p>
+<p><strong>他们把 min-max 深度缓冲实现成一张 <code>RG32F</code> 的【颜色纹理】</strong>，然后用 <strong>MAX 混合</strong>去做比较：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-glsl" data-lang="glsl"><span class="line"><span class="cl"><span class="c1">// 写进去的是这个三分量</span>
+</span></span><span class="line"><span class="cl"><span class="n">float3</span><span class="p">(</span><span class="o">-</span><span class="n">depth</span><span class="p">,</span> <span class="n">depth</span><span class="p">,</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">Adst</span><span class="p">)</span>
+</span></span></code></pre></div><p><strong><code>MAX(a, b)</code> 的字面意思就是&quot;谁大留谁&quot;——那本身就是一个比较器。</strong> 三个分量各自单调，所以一个 MAX 混合能同时管三件事：</p>
+<table>
+	<thead>
+			<tr>
+					<th>分量</th>
+					<th>MAX 出来的结果</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><code>-depth</code></td>
+					<td><strong>最近</strong>的深度（<code>-depth</code> 最大 ⇔ <code>depth</code> 最小）</td>
+			</tr>
+			<tr>
+					<td><code>depth</code></td>
+					<td><strong>最远</strong>的深度</td>
+			</tr>
+			<tr>
+					<td><code>1 - Adst</code></td>
+					<td>累加出来的覆盖（<code>Adst</code> 每趟只减，所以 <code>1-Adst</code> 只增，MAX 拿到的就是最新那个）</td>
+			</tr>
+	</tbody>
+</table>
+<p><strong>代价是一句话</strong>：<em>&ldquo;We essentially turn off the hardware depth buffer.&rdquo;</em> —— 深度测试是<strong>用混合自己搭的</strong>。</p>
+<h3 id="三个附件">三个附件<a hidden class="anchor" aria-hidden="true" href="#三个附件">#</a></h3>
+<table>
+	<thead>
+			<tr>
+					<th>附件</th>
+					<th>装什么</th>
+					<th>格式</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><strong>RT0</strong></td>
+					<td>min-max 深度缓冲</td>
+					<td><code>RG32F</code></td>
+			</tr>
+			<tr>
+					<td><strong>RT1</strong></td>
+					<td>前面剥下来的片元（待 under 混合）</td>
+					<td><code>RGBA8</code></td>
+			</tr>
+			<tr>
+					<td><strong>RT2</strong></td>
+					<td>后面剥下来的片元（待 over 混合）</td>
+					<td><code>RGBA8</code></td>
+			</tr>
+	</tbody>
+</table>
+<p><strong>一个绕法</strong>：那代硬件不支持<strong>按附件分别设混合方程</strong>，所以三个附件都得用同一种。他们的做法是<strong>统一用 MAX</strong>，并把 RT1 / RT2 <strong>每趟清成 0</strong>——&ldquo;跟 0 取 MAX&quot;就等于直接覆盖。</p>
+<h3 id="每一趟做什么">每一趟做什么<a hidden class="anchor" aria-hidden="true" href="#每一趟做什么">#</a></h3>
+<ol>
+<li>
+<p><strong>清 RT1、RT2 为 0</strong></p>
+</li>
+<li>
+<p><strong>把所有透明几何画一遍</strong>到这三个附件</p>
+</li>
+<li>
+<p><strong>判断片元属于前面还是后面</strong>：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-glsl" data-lang="glsl"><span class="line"><span class="cl"><span class="k">if</span> <span class="p">(</span><span class="n">fragDepth</span> <span class="o">==</span> <span class="n">nearestDepth</span><span class="p">)</span> <span class="p">{</span> <span class="cm">/* 前面 */</span> <span class="p">}</span> <span class="k">else</span> <span class="p">{</span> <span class="cm">/* 后面 */</span> <span class="p">}</span>
+</span></span></code></pre></div><p><strong>两条前沿相遇时，一律算前面</strong>——这是防重复计数的那一刀。</p>
+</li>
+<li>
+<p><strong>写出去</strong>：RT0 拿极值，RT1 或 RT2 拿颜色</p>
+</li>
+</ol>
+<h3 id="最后怎么合">最后怎么合<a hidden class="anchor" aria-hidden="true" href="#最后怎么合">#</a></h3>
+<p><strong>前面那半用 <code>under</code> 攒</strong>（从前往后渲染要用的那条）：</p>
+$$
+C_{dst} = A_{dst}(A_{src}C_{src}) + C_{dst}
+$$<p><strong>后面那半用 <code>over</code> 攒</strong>（最常见那个）。</p>
+<p><strong>最后两张图再用一次 <code>under</code> 合体</strong>——注意方向：<code>under</code> 的意思是&quot;源跑到目标<strong>下面</strong>去&rdquo;，所以这一步是<strong>把后面那半塞到前面那半的底下</strong>，因为从眼睛看，前面那半确实压在后面那半上面。</p>
+<h3 id="代价">代价<a hidden class="anchor" aria-hidden="true" href="#代价">#</a></h3>
+<p><strong>early-z 没了。</strong></p>
+<blockquote>
+<p><em>&ldquo;since dual peeling does not use any depth test, it disables the early-z optimizations of the hardware&rdquo;</em></p>
+</blockquote>
+<p><strong>必然的</strong>——你把硬件深度测试关掉、自己用混合搭了一个，硬件那套&quot;先测深度再跑着色器&quot;的优化自然一起没了。</p>
+<p><strong>所以这一项技术是一进一出的账</strong>：趟数减半，early-z 丢掉。<strong>论文没有给相抵之后的净收益</strong>，这里也不替它算。</p>
+<hr>
+<h2 id="五转身单趟近似">五、转身：单趟近似<a hidden class="anchor" aria-hidden="true" href="#五转身单趟近似">#</a></h2>
+<p>多趟这条路，走到最后撞上的是<strong>几何成本</strong>。于是另一条路被翻了出来：<strong>干脆不排序，也不多趟。</strong></p>
+<h3 id="2008-年的加权平均">2008 年的加权平均<a hidden class="anchor" aria-hidden="true" href="#2008-年的加权平均">#</a></h3>
+<p>思路很聪明，从一个平凡事实出发：</p>
+<blockquote>
+<p><strong>如果一个像素上所有片元的颜色都一样，那顺序就无所谓了。</strong></p>
+</blockquote>
+<p>那颜色不一样怎么办？<strong>把它们换成一个平均色。</strong></p>
+<p>用 alpha 加权：</p>
+$$
+C = \frac{\sum_i C_i \alpha_i}{\sum_i \alpha_i}
+$$<p>平均 alpha 取 $\bar\alpha = \frac{1}{n}\sum_i \alpha_i$，其中 $n$ 是这个像素的片元数（深度复杂度）。</p>
+<p>把每个片元都替换成&quot;平均色 + 平均 alpha&quot;，叠 $n$ 次，就得到一个<strong>只依赖 $C$、$\bar\alpha$、$n$</strong> 的结果：</p>
+$$
+C_{dst} = C\left[1-(1-\bar\alpha)^n\right] + C_{bg}\,(1-\bar\alpha)^n
+$$<p><strong>一趟几何 + 一次后处理，就完事了。</strong> 而且不需要顺序。</p>
+<h3 id="但它有两个假设">但它有两个假设<a hidden class="anchor" aria-hidden="true" href="#但它有两个假设">#</a></h3>
+<p><strong>假设一：$n$ 个片元的 alpha 都等于平均值。</strong></p>
+<p>$(1-\bar\alpha)^n$ 这一项，只有&quot;每个片元都是 $\bar\alpha$&ldquo;时才精确。真实场景里一层是 0.9、一层是 0.05，这个式子就会偏。</p>
+<p><strong>假设二：远近无所谓。</strong></p>
+<p>权重只有 alpha，<strong>一个深度都没用到</strong>。于是&quot;贴着你脸的一层玻璃&quot;和&quot;远处的一层雾&quot;权重一样。</p>
+<h3 id="2013-年改掉了这两个假设">2013 年改掉了这两个假设<a hidden class="anchor" aria-hidden="true" href="#2013-年改掉了这两个假设">#</a></h3>
+<p>后来的加权混合（weighted blended）在两点上做了修正：</p>
+<p><strong>① 权重里加进深度</strong>——越近的表面权重越大。一个常见的实现长这样：</p>
+<div class="highlight"><pre tabindex="0" class="chroma"><code class="language-glsl" data-lang="glsl"><span class="line"><span class="cl"><span class="k">float</span> <span class="n">weight</span> <span class="o">=</span> <span class="n">clamp</span><span class="p">(</span>
+</span></span><span class="line"><span class="cl">    <span class="n">pow</span><span class="p">(</span><span class="n">min</span><span class="p">(</span><span class="mf">1.0</span><span class="p">,</span> <span class="n">color</span><span class="p">.</span><span class="n">a</span> <span class="o">*</span> <span class="mf">10.0</span><span class="p">)</span> <span class="o">+</span> <span class="mf">0.01</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">)</span>   <span class="c1">// 颜色因子</span>
+</span></span><span class="line"><span class="cl">    <span class="o">*</span> <span class="mi">1</span><span class="n">e8</span>
+</span></span><span class="line"><span class="cl">    <span class="o">*</span> <span class="n">pow</span><span class="p">(</span><span class="mf">1.0</span> <span class="o">-</span> <span class="n">gl_FragCoord</span><span class="p">.</span><span class="n">z</span> <span class="o">*</span> <span class="mf">0.9</span><span class="p">,</span> <span class="mf">3.0</span><span class="p">),</span>      <span class="c1">// 深度因子</span>
+</span></span><span class="line"><span class="cl">    <span class="mi">1</span><span class="n">e</span><span class="o">-</span><span class="mi">2</span><span class="p">,</span> <span class="mi">3</span><span class="n">e3</span><span class="p">);</span>
+</span></span></code></pre></div><p><strong>注意：它不是一个从物理推出来的式子，是一个启发式。</strong> 而且<strong>必须按你场景的深度范围与透明度去调</strong>——拿适合云和烟的参数去渲一层薄玻璃，结果就不好看。</p>
+<p><strong>★ 一个能说明它有多&quot;手工&quot;的细节</strong>：同一篇教程里，「总览」给的权重函数和「细节」示例代码里实现的<strong>不是同一个</strong>：</p>
+<table>
+	<thead>
+			<tr>
+					<th>出处</th>
+					<th>权重</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>总览</td>
+					<td>$\max\!\big(\min(1, \max_3(\text{color})\cdot\alpha),\ \alpha\big)\cdot \operatorname{clamp}\!\big(\tfrac{0.03}{10^{-5}+(z/200)^4}, 10^{-2}, 3\!\times\!10^{3}\big)$</td>
+			</tr>
+			<tr>
+					<td>示例代码</td>
+					<td>$\operatorname{clamp}\!\big((\min(1,10\alpha)+0.01)^3\cdot 10^{8}\cdot(1-0.9z)^3,\ 10^{-2}, 3\!\times\!10^{3}\big)$</td>
+			</tr>
+	</tbody>
+</table>
+<p>（$z$ 即 <code>gl_FragCoord.z</code>。）</p>
+<p><strong>⇒ 换权重函数就是换算法</strong>——因为在这条路上，<strong>它是唯一的启发式</strong>。</p>
+<p><strong>② 不再用 $(1-\bar\alpha)^n$ 近似，改用真实的 alpha 覆盖</strong>：</p>
+$$
+u = 1 - \prod_i (1-\alpha_i)
+$$<p><strong>⇒ 这就是为什么现在你看到的那些实现里，都会有一个&quot;看起来很奇怪&quot;的权重函数和一句 <code>1.0 - revealage</code>。</strong> 它们不是经验常数堆出来的，它们是<strong>对上一条近似里两个假设的修正</strong>。</p>
+<h3 id="它的形状">它的形状<a hidden class="anchor" aria-hidden="true" href="#它的形状">#</a></h3>
+<p>现在主流实现只要两个附件：</p>
+<table>
+	<thead>
+			<tr>
+					<th>附件</th>
+					<th>装什么</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td><strong>累加</strong></td>
+					<td>$\sum_i C_i \alpha_i w_i$</td>
+			</tr>
+			<tr>
+					<td><strong>揭示</strong>（revealage）</td>
+					<td>$\prod_i (1-\alpha_i)$</td>
+			</tr>
+	</tbody>
+</table>
+<p>最后一次全屏 pass：</p>
+$$C = \frac{\text{累加}}{\text{揭示}}$$<p>，再用 $1 - \text{揭示}$ 当 alpha 合到不透明场景上。</p>
+<p><strong>⚠️ 一个小陷阱</strong>：如果&quot;揭示&quot;用 <code>R8</code> 存，层数一多，乘积会趋近 0，而 <code>R8</code> 在 0 附近的分辨率有限。所以压缩格式的选择在这里不是随便的。</p>
+<hr>
+<h2 id="六两个容易踩的坑">六、两个容易踩的坑<a hidden class="anchor" aria-hidden="true" href="#六两个容易踩的坑">#</a></h2>
+<h3 id="坑一两层深度差不多">坑一：两层深度&quot;差不多&rdquo;<a hidden class="anchor" aria-hidden="true" href="#坑一两层深度差不多">#</a></h3>
+<p><strong>先说结论：接近但不等，完全没问题。</strong></p>
+<p>深度剥离做的是<strong>严格比较</strong>，没有 epsilon、没有阈值。<code>0.5000001</code> 和 <code>0.5000002</code> 跟 <code>0.1</code> 和 <code>0.9</code> 是一样的处理。</p>
+<p><strong>会出问题的不是&quot;接近&quot;，是&quot;同一个深度被两条路算了两遍&quot;。</strong> 也就是 2001 那个问题：一边走光栅化、一边走纹理，算出来差一点点。2008 之后两边都是 32 位浮点，这个问题基本消失了——论文的说法就是可以 <em>&ldquo;compare them without any bias&rdquo;</em>。</p>
+<p><strong>但&quot;完全相等&quot;是另一回事。</strong> 两个<strong>严格重合</strong>的透明面（共面贴片、同一位置摆了两份、双面材质），会撞上退化：</p>
+<ul>
+<li>用<strong>严格不等号</strong>（<code>GREATER</code> / <code>LESS</code>）的实现，<strong>会丢掉其中一个</strong>——它既不是&quot;这一层的赢家&quot;，下一趟又通不过&quot;严格更远&quot;的判断</li>
+<li>用<strong>相等匹配</strong>的实现（&ldquo;深度等于上一层的，就是这一层&rdquo;），<strong>两个都会通过</strong>，于是<strong>都参与混合</strong></li>
+</ul>
+<p><strong>⚠️ 这是一个我查到的、两处资料说法不一致的地方</strong>，而且<strong>我没找到任何原文正面讨论过重合面</strong>。实践上，重合面通常是<strong>建模问题</strong>（重复几何、两个共面贴片），该在导出资产时清掉——<strong>它不该由渲染器来兜。</strong></p>
+<p><strong>真正需要小心的是&quot;背靠背的两片三角&quot;</strong>（树叶卡、纸片）。如果两片严格共面，就会踩这个退化。</p>
+<h3 id="坑二以为趟数就是层数">坑二：以为趟数就是层数<a hidden class="anchor" aria-hidden="true" href="#坑二以为趟数就是层数">#</a></h3>
+<p><strong>深度剥离的趟数不等于场景里&quot;有多少层透明面&quot;</strong>，而是<strong>这个像素上最多叠了几层</strong>。而且它可能到处都是 2 层，只有一小块区域叠了 30 层。</p>
+<p><strong>这就是为什么所有实现都在谈&quot;提前退出&quot;</strong>：</p>
+<ul>
+<li><strong>前向剥离</strong>可以先画最要紧的层，所以能提前停：当一个像素的 alpha 逼近 1，或者某一趟画出来的像素数低于阈值，就可以收工</li>
+<li><strong>从后往前剥就不行了</strong>——最近的层最后画，提前停会把它丢掉</li>
+</ul>
+<p>双向那一版还多了一条更实用的性质：<strong>任何时候停下，最前面那层一定已经拿到了</strong>。</p>
+<hr>
+<h2 id="七该选哪个">七、该选哪个<a hidden class="anchor" aria-hidden="true" href="#七该选哪个">#</a></h2>
+<p><strong>看你的场景，而不是看哪篇论文更新。</strong></p>
+<table>
+	<thead>
+			<tr>
+					<th>你的情况</th>
+					<th>选</th>
+			</tr>
+	</thead>
+	<tbody>
+			<tr>
+					<td>透明物体少、大多是凸壳、不太重叠</td>
+					<td><strong>排序</strong>。够用，成本最低</td>
+			</tr>
+			<tr>
+					<td>有互相穿透、有大量重叠层、要精确</td>
+					<td><strong>多趟剥离</strong>。接受 N 趟重绘</td>
+			</tr>
+			<tr>
+					<td>粒子、烟、雾、头发这类<strong>大量薄片</strong></td>
+					<td><strong>加权混合</strong>。顺序本来就不重要，单趟快得多</td>
+			</tr>
+			<tr>
+					<td>少数几个不透明感很强的玻璃物件</td>
+					<td>⚠️ <strong>加权混合会不好看</strong>——它最怕&quot;近乎不透明&quot;的层</td>
+			</tr>
+	</tbody>
+</table>
+<p><strong>最后一条值得展开</strong>：加权混合最大的弱点是<strong>忽略顺序</strong>。一层 $\alpha=0.95$ 的玻璃和它后面的一层 $\alpha=0.05$ 的雾，在加权平均里会互相污染。<strong>它擅长的是&quot;很多层、每层都很淡&quot;；不擅长&quot;少几层、每层都很实&quot;。</strong></p>
+<hr>
+<h2 id="参考">参考<a hidden class="anchor" aria-hidden="true" href="#参考">#</a></h2>
+<ul>
+<li>Cass Everitt, <em>Interactive Order-Independent Transparency</em>, NVIDIA, 2001 —— 深度剥离的出处。原始材料是一份 14 页的演示稿。</li>
+<li>Louis Bavoil, Kevin Myers, <em>Order Independent Transparency with Dual Depth Peeling</em>, NVIDIA, 2008 —— 双重深度剥离，以及加权平均法的最早成型。<a href="https://developer.download.nvidia.com/SDK/10/opengl/src/dual_depth_peeling/doc/DualDepthPeeling.pdf">PDF</a></li>
+<li>Morgan McGuire, Louis Bavoil, <em>Weighted Blended Order-Independent Transparency</em>, JCGT, 2013。<a href="http://jcgt.org/published/0002/02/09/">论文</a></li>
+<li>Tomas Akenine-Möller et al., <em>Real-Time Rendering</em>, 4th ed., §5.5</li>
+<li>LearnOpenGL, <em>Guest Articles: OIT</em> 两篇</li>
+</ul>
+<blockquote>
+<p>说明：本文的机制描述来自上面这些一手材料，但<strong>图例与排版是我自己的</strong>；几处&quot;两种实现行为不同&quot;的对照（第六节）是我把不同来源并排读出来的，<strong>原始材料本身没有正面讨论过这些退化情形</strong>。</p>
+</blockquote>
+
+
+  </div>
+
+  <footer class="post-footer">
+    <ul class="post-tags">
+      <li><a href="https://quanpu.wang/tags/%E5%9B%BE%E5%BD%A2%E5%AD%A6/">图形学</a></li>
+      <li><a href="https://quanpu.wang/tags/%E6%B8%B2%E6%9F%93/">渲染</a></li>
+      <li><a href="https://quanpu.wang/tags/%E9%80%8F%E6%98%8E%E5%BA%A6/">透明度</a></li>
+      <li><a href="https://quanpu.wang/tags/oit/">OIT</a></li>
+    </ul>
+<nav class="paginav">
+  <a class="next" href="https://quanpu.wang/posts/%E9%AA%A8%E9%AA%BC%E8%92%99%E7%9A%AE/">
+    <span class="title">下一页 »</span>
+    <span>骨骼蒙皮：三个引擎都不在顶点着色器里做</span>
+  </a>
+</nav>
+
+  </footer>
+</article>
+    </main>
+    
+<footer class="footer">
+        <span>&copy; 2026 <a href="https://quanpu.wang/">幻域 · 渲染笔记</a></span> · 
+
+    
+    
+    <span>
+        Powered by
+        <a href="https://gohugo.io/?utm_source=papermod" rel="noopener" target="_blank">Hugo</a> &
+        <a href="https://github.com/adityatelange/hugo-PaperMod/" rel="noopener" target="_blank">PaperMod</a>
+    </span>
+</footer>
+<a href="#top" id="top-link" class="top-link hidden" aria-label="go to top" title="Go to Top (Alt + G)" accesskey="g">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+        stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevrons-up">
+        <polyline points="17 11 12 6 7 11"></polyline>
+        <polyline points="17 18 12 13 7 18"></polyline>
+    </svg>
+</a>
+<script defer src="/js/custom/site.6b88e051b26e72b9a7e34c2968f450be106dbe079194e862c9c7156a4285a14e.js"></script>
+
+
+<script>
+    let menu = document.getElementById('menu');
+    if (menu) {
+        
+        const scrollPosition = localStorage.getItem("menu-scroll-position");
+        if (scrollPosition) {
+            menu.scrollLeft = parseInt(scrollPosition, 10);
+        }
+        
+        menu.onscroll = function () {
+            localStorage.setItem("menu-scroll-position", menu.scrollLeft);
+        }
+    }
+
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener("click", function (e) {
+            e.preventDefault();
+            var id = this.getAttribute("href").substr(1);
+            if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView({
+                    behavior: "smooth"
+                });
+            } else {
+                document.querySelector(`[id='${decodeURIComponent(id)}']`).scrollIntoView();
+            }
+            if (id === "top") {
+                history.replaceState(null, null, " ");
+            } else {
+                history.pushState(null, null, `#${id}`);
+            }
+        });
+    });
+
+</script>
+<script>
+    var toplink = document.getElementById("top-link");
+    window.onscroll = function () {
+        const scrollThreshold = window.innerHeight;
+        if (document.body.scrollTop > scrollThreshold || document.documentElement.scrollTop > scrollThreshold) {
+            toplink.classList.remove("hidden");
+        } else {
+            toplink.classList.add("hidden");
+        }
+    };
+
+</script>
+<script>
+    document.getElementById("theme-toggle").addEventListener("click", () => {
+        const html = document.querySelector("html");
+        if (html.dataset.theme === "dark") {
+            html.dataset.theme = 'light';
+            localStorage.setItem("pref-theme", 'light');
+        } else {
+            html.dataset.theme = 'dark';
+            localStorage.setItem("pref-theme", 'dark');
+        }
+    })
+
+</script>
+<script>
+    document.querySelectorAll('pre > code').forEach((codeblock) => {
+        const container = codeblock.parentNode.parentNode;
+
+        const copybutton = document.createElement('button');
+        copybutton.classList.add('copy-code');
+        copybutton.innerHTML = '复制';
+
+        function copyingDone() {
+            copybutton.innerHTML = '已复制！';
+            setTimeout(() => {
+                copybutton.innerHTML = '复制';
+            }, 2000);
+        }
+
+        copybutton.addEventListener('click', (cb) => {
+            if ('clipboard' in navigator) {
+                navigator.clipboard.writeText(codeblock.textContent);
+                copyingDone();
+                return;
+            }
+
+            const range = document.createRange();
+            range.selectNodeContents(codeblock);
+            const selection = window.getSelection();
+            selection.removeAllRanges();
+            selection.addRange(range);
+            try {
+                document.execCommand('copy');
+                copyingDone();
+            } catch (e) { };
+            selection.removeRange(range);
+        });
+
+        if (container.classList.contains("highlight")) {
+            container.appendChild(copybutton);
+        } else if (container.parentNode.firstChild == container) {
+            
+        } else if (codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.nodeName == "TABLE") {
+            
+            codeblock.parentNode.parentNode.parentNode.parentNode.parentNode.appendChild(copybutton);
+        } else {
+            
+            codeblock.parentNode.appendChild(copybutton);
+        }
+    });
+</script>
+</body>
+
+</html>
