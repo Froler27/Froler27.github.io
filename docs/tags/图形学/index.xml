@@ -13,7 +13,7 @@
       <link>https://quanpu.wang/posts/oit%E4%B8%89%E4%BB%A3%E6%96%B9%E6%A1%88/</link>
       <pubDate>Tue, 20 Oct 2026 00:00:00 +0800</pubDate>
       <guid>https://quanpu.wang/posts/oit%E4%B8%89%E4%BB%A3%E6%96%B9%E6%A1%88/</guid>
-      <description>半透明的结果依赖绘制顺序，而 z 缓冲每像素只存一个东西。从这条矛盾出发，讲清三代 OIT 方案——排序、多趟剥离、单趟近似——各自换来了什么、付出了什么，以及两个容易踩的坑。</description>
+      <description>旋转相机、反转提交顺序并检查单个像素，比较物体排序、深度剥离、双重剥离与加权混合。了解顺序无关透明的原理和代价。</description>
     </item>
     <item>
       <title>骨骼蒙皮：三个引擎都不在顶点着色器里做</title>
