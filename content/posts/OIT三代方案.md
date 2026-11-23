@@ -77,6 +77,7 @@ cover: {image: "/images/brand/og-1200x630.png", hidden: true}
     </div>
     <div class="oit-actions">
       <button id="oit-reverse" type="button">反转提交顺序</button>
+      <button id="oit-weighted-example" type="button">观察加权混合串色</button>
       <button id="oit-reset" type="button">重置实验</button>
     </div>
   </form>
@@ -96,7 +97,7 @@ cover: {image: "/images/brand/og-1200x630.png", hidden: true}
 
 1. **看顺序。** 先反转提交顺序，再打开透明深度写入。右图保持不变，左图可能变色或缺层。
 2. **看剥离。** 找一个显示三层的像素。前向剥离需要三轮取齐，双重剥离两轮取齐。对比第一轮，猜猜两种方式各自留下了哪些层。
-3. **看近似。** 切到加权混合，反转提交顺序，再把红片 α 拉到 1。找到红片位于最前的像素，观察它后面的颜色是否仍影响结果。
+3. **看近似。** 点击「观察加权混合串色」，实验会把红片 α 设为 1，并选中红片位于最前的三层像素。右图只剩红色，左图仍混入了后方的蓝片和黄片。再反转提交顺序，观察左图是否变化。
 
 <details>
 <summary>自测：顺序无关就是颜色精确吗？</summary>

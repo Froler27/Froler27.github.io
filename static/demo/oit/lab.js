@@ -220,6 +220,14 @@
     reversed = !reversed;
     schedule();
   });
+  lab.querySelector('#oit-weighted-example').addEventListener('click', () => {
+    lab.querySelector('form').reset();
+    mode.value = 'weighted';
+    alpha.value = '1';
+    reversed = false;
+    probe = [180, 112];
+    schedule();
+  });
   lab.querySelector('#oit-reset').addEventListener('click', () => {
     lab.querySelector('form').reset();
     reversed = false;
