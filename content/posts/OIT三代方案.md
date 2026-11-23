@@ -4,13 +4,109 @@ draft: false
 date: 2026-10-20
 math: true
 tags: ["图形学", "渲染", "透明度", "OIT"]
-summary: "半透明的结果依赖绘制顺序，而 z 缓冲每像素只存一个东西。从这条矛盾出发，讲清三代 OIT 方案——排序、多趟剥离、单趟近似——各自换来了什么、付出了什么，以及两个容易踩的坑。"
+summary: "旋转相机、反转提交顺序并检查单个像素，比较物体排序、深度剥离、双重剥离与加权混合。了解顺序无关透明的原理和代价。"
 cover: {image: "/images/brand/og-1200x630.png", hidden: true}
 ---
 
-## 结论
+## 开始之前
 
-半透明的合成**依赖顺序**，而 z 缓冲每像素**只存一个东西**。这两句话凑在一起，就是 OIT（Order-Independent Transparency，顺序无关透明）存在的全部理由。
+这页要解决一个问题：透明表面互相遮挡时，怎样在改变提交顺序后仍得到同一个画面？做完实验，你应该能解释物体排序为什么会失败，并能判断该选深度剥离还是加权混合。
+
+**前置知识**
+
+- [片元与像素](#oit-pixel) — 一个像素为什么可能收到多个表面的贡献。
+- [深度测试与深度写入](#oit-depth-primer) — 为什么透明物体通常保留深度测试、关闭深度写入。
+- [Alpha Over 混合](#over-是不满足交换律的) — 每一层如何改变累积颜色。
+
+<details>
+<summary>补习：片元与像素</summary>
+<p id="oit-pixel">一个三角形覆盖了屏幕上的某个采样位置，光栅化后会为该位置提供片元。多张半透明薄片覆盖同一位置，就会有多个片元参与最终颜色。实验用从相机穿过像素的射线与薄片求交，来得到同一位置的片元和深度。</p>
+</details>
+
+<details>
+<summary>补习：深度测试与深度写入</summary>
+<p id="oit-depth-primer">深度测试用已有深度决定片元能否通过，深度写入决定通过后是否更新它。先绘制不透明表面并写深度，透明阶段继续测试这份深度，就能挡住墙后的玻璃。同时关闭普通透明绘制的深度写入，避免近处玻璃把应该透出来的远处玻璃挡掉。实验的场景没有不透明遮挡物，开关只用于比较透明层之间的影响。</p>
+</details>
+
+## 互动实验：同一个像素，谁在前面？
+
+先猜：只反转提交顺序、相机和薄片都不动，画面会变吗？试完后选「物体中心排序」，在平行和相交场景之间切换，并分别点选交线两侧。注意同两片薄片在两个像素处的远近关系。
+
+<link rel="stylesheet" href="/demo/oit/lab.css">
+<div id="oit-lab" aria-label="透明混合交互实验">
+  <div class="oit-views">
+    <figure>
+      <figcaption id="oit-active-title">提交顺序 · Alpha Over</figcaption>
+      <canvas width="320" height="224" tabindex="0" aria-label="当前算法画面，方向键移动探针">当前算法画面</canvas>
+    </figure>
+    <figure>
+      <figcaption>逐像素精确参考</figcaption>
+      <canvas width="320" height="224" tabindex="0" aria-label="精确参考画面，方向键移动探针">精确参考画面</canvas>
+    </figure>
+  </div>
+  <form>
+    <div class="oit-controls">
+      <label>透明算法
+        <select id="oit-mode">
+          <option value="submission">按提交顺序混合</option>
+          <option value="object">按物体中心排序</option>
+          <option value="peel">前向深度剥离</option>
+          <option value="dual">双重深度剥离</option>
+          <option value="weighted">加权混合 OIT</option>
+        </select>
+      </label>
+      <label>薄片布局
+        <select id="oit-scene">
+          <option value="cross">三片相交</option>
+          <option value="parallel">三片平行</option>
+        </select>
+      </label>
+      <label><span>红片 α <output id="oit-alpha-value" for="oit-alpha"></output></span>
+        <input id="oit-alpha" type="range" min="0" max="1" step="0.01" value="0.64">
+      </label>
+      <label><span>剥离轮数 <output id="oit-layer-value" for="oit-layers"></output></span>
+        <input id="oit-layers" type="range" min="1" max="3" value="1" disabled>
+      </label>
+      <label><span>相机水平角 <output id="oit-yaw-value" for="oit-yaw"></output></span>
+        <input id="oit-yaw" type="range" min="-60" max="60" value="0">
+      </label>
+      <label><span>相机仰角 <output id="oit-pitch-value" for="oit-pitch"></output></span>
+        <input id="oit-pitch" type="range" min="-36" max="36" value="0">
+      </label>
+      <label class="oit-checkbox"><input id="oit-depth" type="checkbox">开启透明深度写入</label>
+    </div>
+    <div class="oit-actions">
+      <button id="oit-reverse" type="button">反转提交顺序</button>
+      <button id="oit-reset" type="button">重置实验</button>
+    </div>
+  </form>
+  <p id="oit-order"></p>
+  <p id="oit-mode-note"></p>
+  <div class="oit-inspector">
+    <p class="oit-hint">点击任一画面选择像素。键盘聚焦画面后，用方向键移动探针。</p>
+    <p id="oit-probe"></p>
+    <ol id="oit-fragments"></ol>
+    <p id="oit-readout"></p>
+  </div>
+  <noscript>启用 JavaScript 后可操作实验。下文提供公式与数值例子。</noscript>
+</div>
+<script src="/demo/oit/lab.js" defer></script>
+
+左图使用选择的算法，右图始终按各像素的实际深度从远到近做 Over。图像通过 Canvas 显示 CPU 模拟结果，剥离模式直接从已排序的片元中选取对应层，便于对比每轮保留哪些片元。实验中的深度是沿相机前向的距离，颜色在线性空间混合，再转成 sRGB 显示。
+
+1. **看顺序。** 先反转提交顺序，再打开透明深度写入。右图保持不变，左图可能变色或缺层。
+2. **看剥离。** 找一个显示三层的像素。前向剥离需要三轮取齐，双重剥离两轮取齐。对比第一轮，猜猜两种方式各自留下了哪些层。
+3. **看近似。** 切到加权混合，反转提交顺序，再把红片 α 拉到 1。找到红片位于最前的像素，观察它后面的颜色是否仍影响结果。
+
+<details>
+<summary>自测：顺序无关就是颜色精确吗？</summary>
+<p>设某像素上红片在蓝片前方，红片 α = 1。精确的 Over 为什么只剩红色？加权混合为什么还有蓝色？</p>
+<details><summary>查看答案</summary><p>在 Over 中，红片把后方颜色乘上 1 − α，即 0。加权混合算出的总覆盖率同样是 1，但蓝片只要有正权重，就会进入代表色的加权平均。提交顺序无关与按几何顺序精确合成是两个性质。</p></details>
+</details>
+
+## 方法对照
+
+正确的透明合成需要各像素的层顺序，而普通深度附件只保留一个深度。OIT（Order-Independent Transparency，顺序无关透明）允许应用改变提交顺序，同时保留稳定的合成结果。
 
 三种走法，本质是三种**付账方式**：
 
@@ -18,7 +114,7 @@ cover: {image: "/images/brand/og-1200x630.png", hidden: true}
 |---|---|---|
 | **按物体排序** | 几乎零成本 | **只是近似**：互相穿透的物体、自重叠的凹形网格，排不准 |
 | **多趟剥离** | **精确** | **每剥一层，把所有透明几何重画一遍** |
-| **单趟近似** | **一趟画完** | **放弃顺序**，靠一个加权平均去猜 |
+| **单趟近似** | **一次透明几何累积，再全屏合成** | **放弃顺序**，靠一个加权平均去猜 |
 
 后两种各自又长出了自己的问题：剥离要问"第二个深度缓冲从哪来"，近似要问"平均到底准不准"。这篇文章把三代讲一遍，最后会落到两个实际会踩的坑上。
 
@@ -51,20 +147,17 @@ $$
 
 顺带排除一个常见误解：**"两个面 alpha 一样就无所谓"是错的。** 上面那组用的是 0.8 和 0.3，但把它们都换成 0.5，两种顺序依然给出不同结果——因为先画的那个会先和背景混一次，后画的又在这个结果上混。**over 只有在颜色相同（或者 alpha 为 0）时才可交换**，跟 alpha 是否相等无关。
 
-### 而 GPU 是按提交顺序画的
+### 混合顺序和几何深度是什么关系
 
-应用程序把透明物体按什么顺序提交，GPU 就按什么顺序画。**它不知道哪个在前哪个在后**——因为 z 缓冲只知道"这个像素最近的那个是谁"，**它每像素只存一个深度、一个颜色**。
+普通固定功能混合按绘制顺序更新颜色附件。要得到几何上正确的 Over，针对每个像素都应从远到近合成。深度附件通常只保留一个深度值，无法提供被最近层覆盖的所有透明层。
 
-所以：
-
-> 你要么**告诉它顺序**（排序），
-> 要么**想办法不依赖顺序**（OIT）。
+物体排序试图用一个全局提交顺序满足这些逐像素约束。OIT 则让应用可以按任意顺序提交透明物体，再由算法恢复各像素的层顺序，或通过可交换的运算近似合成。
 
 ---
 
 ## 二、排序：最简单，也最不牢靠
 
-最直觉的做法是**按物体排**：算每个透明物体质心到相机的距离，从远到近提交。
+最直觉的做法是**按物体排**：算每个透明物体质心在相机前向上的深度，从远到近提交。
 
 **它便宜、不需要额外内存、也不需要任何特殊硬件支持**——所以它是绝大多数引擎的默认做法，包括我自己引擎里的透明 pass（按住一个键切换的那条分支，就是它）。
 
@@ -72,7 +165,7 @@ $$
 
 **① 质心只是一个代表点。** 两个物体，A 的质心比 B 远，但 A 的一部分伸到了 B 前面。
 
-**② 互相穿透的物体，怎么排都是错的。** 一艘船插进水里、一扇门穿过另一扇门——**除非把网格打散**，否则在任何视角下都不存在一个正确的顺序。
+**② 互相穿透的物体，怎么排都是错的。** 一艘船插进水里、一扇门穿过另一扇门——当相交线两侧在屏幕上同时可见时，两侧所需的顺序相反，整物体排序无法同时满足。
 
 **③ 单个凹形网格自重叠时也会出问题。** 你不需要两个物体，一个"回"字形的模型自己就能和自己打架。
 
@@ -97,12 +190,12 @@ glDepthMask(GL_FALSE);
 ### 怎么剥
 
 1. 正常渲一遍，深度缓冲里是**最近**的那层
-2. 再渲一遍，**把比上一层更近的片元全部枪毙**，剩下的里面**再取最近的**——这就是第二层
+2. 再渲一遍，**丢弃与上一层等深或更近的片元**，剩下的里面**再取最近的**——这就是第二层
 3. 重复，直到没有片元剩下
 
 每一趟你得到"某一层的颜色"，把它们按顺序合起来，就是正确结果。
 
-**关键是第 2 步那句"枪毙"**：它需要拿**上一趟的深度**当参照。也就是每个像素要同时做**两次深度判断**——一次对"上一层"，一次对"这一趟要记录的新缓冲"。
+**第 2 步需要两次比较。** 它需要拿**上一趟的深度**当参照。也就是每个像素要同时做**两次深度判断**——一次对"上一层"，一次对"这一趟要记录的新缓冲"。
 
 ### 2001 年：没有双深度缓冲，那就借一台
 
@@ -136,11 +229,11 @@ glDepthMask(GL_FALSE);
 
 ---
 
-## 四、双重深度剥离：N → N/2+1
+## 四、双重深度剥离：一轮取两端
 
 **既然前后都能剥，那就一趟从两头各剥一层。**
 
-2008 年 Bavoil 和 Myers 的做法把趟数从 $N$ 降到 $N/2 + 1$。
+2008 年 Bavoil 和 Myers 的做法先初始化深度范围，再每趟剥掉两层。在最深像素有 $N$ 层、全部取齐的情况下，透明几何趟数为 $1 + \lceil N/2 \rceil$，包括初始化。
 
 ### 第一关：中间那层会被算两次
 
@@ -154,7 +247,7 @@ glDepthMask(GL_FALSE);
 
 七年后，答案从"借"变成了"造"。
 
-**他们把 min-max 深度缓冲实现成一张 `RG32F` 的【颜色纹理】**，然后用 **MAX 混合**去做比较：
+**基础实现用 `RG32F` 颜色纹理存 `(-depth, depth)`**，再用 MAX 混合选出最近和最远深度。论文讨论的边剥边混合变体还需要第三个通道来保存覆盖率：
 
 ```glsl
 // 写进去的是这个三分量
@@ -265,7 +358,7 @@ $(1-\bar\alpha)^n$ 这一项，只有"每个片元都是 $\bar\alpha$"时才精�
 
 ```glsl
 float weight = clamp(
-    pow(min(1.0, color.a * 10.0) + 0.01, 3.0)   // 颜色因子
+    pow(min(1.0, color.a * 10.0) + 0.01, 3.0)   // alpha 因子
     * 1e8
     * pow(1.0 - gl_FragCoord.z * 0.9, 3.0),      // 深度因子
     1e-2, 3e3);
@@ -282,7 +375,7 @@ float weight = clamp(
 
 （$z$ 即 `gl_FragCoord.z`。）
 
-**⇒ 换权重函数就是换算法**——因为在这条路上，**它是唯一的启发式**。
+改变权重函数会改变近似颜色。上面的实验使用更容易读懂的 $w_i=(4/z_i)^6$，其中 $z_i$ 是相机前向深度。
 
 **② 不再用 $(1-\bar\alpha)^n$ 近似，改用真实的 alpha 覆盖**：
 
@@ -298,10 +391,16 @@ $$
 
 | 附件 | 装什么 |
 |---|---|
-| **累加** | $\sum_i C_i \alpha_i w_i$ |
+| **累加（RGB / A）** | RGB 存 $\sum_i C_i \alpha_i w_i$，A 存 $\sum_i \alpha_i w_i$ |
 | **揭示**（revealage） | $\prod_i (1-\alpha_i)$ |
 
-最后一次全屏 pass：$$C = \frac{\text{累加}}{\text{揭示}}$$，再用 $1 - \text{揭示}$ 当 alpha 合到不透明场景上。
+记累加附件为 $A$，揭示附件为 $R$。代表色是 $A_{rgb}/A_a$，其中分母是权重之和。揭示率 $R$ 表示背景透过全部透明层的比例：
+
+$$
+C_{out} = \frac{A_{rgb}}{A_a}(1-R) + C_{bg} R
+$$
+
+当 $A_a=0$ 时直接保留背景。加法和乘法都可交换，因此重新排列提交顺序只会带来有限精度下可能出现的舍入差异。GPU 实现通常先渲染不透明物体，再在透明累积阶段只做深度测试，最后全屏合成。若 API 或硬件不支持逐附件混合，需要拆分累积与揭示的写入。
 
 **⚠️ 一个小陷阱**：如果"揭示"用 `R8` 存，层数一多，乘积会趋近 0，而 `R8` 在 0 附近的分辨率有限。所以压缩格式的选择在这里不是随便的。
 
@@ -311,9 +410,7 @@ $$
 
 ### 坑一：两层深度"差不多"
 
-**先说结论：接近但不等，完全没问题。**
-
-深度剥离做的是**严格比较**，没有 epsilon、没有阈值。`0.5000001` 和 `0.5000002` 跟 `0.1` 和 `0.9` 是一样的处理。
+在同一深度表示下，只要两个片元有可区分的深度值，严格比较就能分出先后。量化到同一值或用不同计算路径重算同一片元的深度时，需要考虑精度和等深规则。
 
 **会出问题的不是"接近"，是"同一个深度被两条路算了两遍"。** 也就是 2001 那个问题：一边走光栅化、一边走纹理，算出来差一点点。2008 之后两边都是 32 位浮点，这个问题基本消失了——论文的说法就是可以 *"compare them without any bias"*。
 
@@ -347,7 +444,7 @@ $$
 |---|---|
 | 透明物体少、大多是凸壳、不太重叠 | **排序**。够用，成本最低 |
 | 有互相穿透、有大量重叠层、要精确 | **多趟剥离**。接受 N 趟重绘 |
-| 粒子、烟、雾、头发这类**大量薄片** | **加权混合**。顺序本来就不重要，单趟快得多 |
+| 粒子、烟、雾、头发这类**大量薄片** | **加权混合**。薄片的色差通常较容易接受，累积成本也更可控 |
 | 少数几个不透明感很强的玻璃物件 | ⚠️ **加权混合会不好看**——它最怕"近乎不透明"的层 |
 
 **最后一条值得展开**：加权混合最大的弱点是**忽略顺序**。一层 $\alpha=0.95$ 的玻璃和它后面的一层 $\alpha=0.05$ 的雾，在加权平均里会互相污染。**它擅长的是"很多层、每层都很淡"；不擅长"少几层、每层都很实"。**
@@ -358,7 +455,7 @@ $$
 
 - Cass Everitt, *Interactive Order-Independent Transparency*, NVIDIA, 2001 —— 深度剥离的出处。原始材料是一份 14 页的演示稿。
 - Louis Bavoil, Kevin Myers, *Order Independent Transparency with Dual Depth Peeling*, NVIDIA, 2008 —— 双重深度剥离，以及加权平均法的最早成型。[PDF](https://developer.download.nvidia.com/SDK/10/opengl/src/dual_depth_peeling/doc/DualDepthPeeling.pdf)
-- Morgan McGuire, Louis Bavoil, *Weighted Blended Order-Independent Transparency*, JCGT, 2013。[论文](http://jcgt.org/published/0002/02/09/)
+- Morgan McGuire, Louis Bavoil, *Weighted Blended Order-Independent Transparency*, JCGT, 2013。[论文](https://jcgt.org/published/0002/02/09/)
 - Tomas Akenine-Möller et al., *Real-Time Rendering*, 4th ed., §5.5
 - LearnOpenGL, *Guest Articles: OIT* 两篇
 
